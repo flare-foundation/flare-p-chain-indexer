@@ -7,6 +7,7 @@ port = 3306
 database = "flare_indexer"
 username = "indexeruser"
 password = "P.a.s.s.W.O.R.D"
+# use only for debugging, queries are printed to console
 log_queries = false
 
 [logger]
@@ -40,3 +41,7 @@ start_index = 0
 [uptime_cronjob]
 enabled = false
 timeout_seconds = 10
+# 2023-07-01 00:00:00 UTC
+aggregate_start_timestamp = 1688169600
+# three days and 12 hours
+aggregate_interval_seconds = 302400

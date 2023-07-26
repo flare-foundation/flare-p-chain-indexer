@@ -1,6 +1,8 @@
 package database
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -37,4 +39,16 @@ func CreateUptimeCronjobEntry(db *gorm.DB, entities []*UptimeCronjob) error {
 		return db.Create(entities).Error
 	}
 	return nil
+}
+
+func FetchLastUptimeAggregation(db *gorm.DB) ([]UptimeAggregation, error) {
+	var lastAggregation []UptimeAggregation
+	err := db.Raw("SELECT node_groups.* FROM (SELECT ua.*, ROW_NUMBER() OVER (PARTITION BY ua.node_id ORDER BY ua.timestamp DESC) as rownum FROM uptime_aggregations ua) as node_groups WHERE node_groups.rownum = 1").Scan(&lastAggregation).Error
+	return lastAggregation, err
+}
+
+func FetchNodeUptimes(db *gorm.DB, nodeID string, startTime time.Time, endTime time.Time) ([]UptimeCronjob, error) {
+	var uptimes []UptimeCronjob
+	err := db.Where("(node_id = ? OR )AND timestamp >= ? AND timestamp < ?", nodeID, startTime, endTime).Order("timestamp asc").Find(&uptimes).Error
+	return uptimes, err
 }

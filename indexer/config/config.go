@@ -11,7 +11,7 @@ type Config struct {
 	Metrics       MetricsConfig       `toml:"metrics"`
 	XChainIndexer IndexerConfig       `toml:"x_chain_indexer"`
 	PChainIndexer IndexerConfig       `toml:"p_chain_indexer"`
-	UptimeCronjob CronjobConfig       `toml:"uptime_cronjob"`
+	UptimeCronjob UptimeCronjobConfig `toml:"uptime_cronjob"`
 }
 
 type MetricsConfig struct {
@@ -31,6 +31,12 @@ type CronjobConfig struct {
 	TimeoutSeconds int  `toml:"timeout_seconds"`
 }
 
+type UptimeCronjobConfig struct {
+	CronjobConfig
+	AggregateStartTimestamp  uint64 `toml:"aggregate_start_timestamp"`
+	AggregateIntervalSeconds uint   `toml:"aggregate_interval_seconds"`
+}
+
 func newConfig() *Config {
 	return &Config{
 		XChainIndexer: IndexerConfig{
@@ -45,9 +51,13 @@ func newConfig() *Config {
 			BatchSize:     10,
 			StartIndex:    0,
 		},
-		UptimeCronjob: CronjobConfig{
-			Enabled:        false,
-			TimeoutSeconds: 60,
+		UptimeCronjob: UptimeCronjobConfig{
+			CronjobConfig: CronjobConfig{
+				Enabled:        false,
+				TimeoutSeconds: 60,
+			},
+			AggregateStartTimestamp:  0,
+			AggregateIntervalSeconds: 3 * 24 * 60 * 60,
 		},
 		Chain: config.ChainConfig{
 			NodeURL: "http://localhost:9650/",

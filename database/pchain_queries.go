@@ -172,3 +172,18 @@ func FindPChainTxInBlockHeight(db *gorm.DB,
 	}
 	return &txs[0], true, nil
 }
+
+// Fetches all P-chain staking transactions of type txType intersecting the given time interval
+func FetchNodeStakingIntervals(db *gorm.DB, txType PChainTxType, startTime time.Time, endTime time.Time) ([]PChainTx, error) {
+	var txs []PChainTx
+
+	if txType != PChainAddValidatorTx && txType != PChainAddDelegatorTx {
+		return nil, errInvalidTransactionType
+	}
+
+	err := db.Where(&PChainTx{Type: txType}).
+		Where("start_time <= ?", endTime).
+		Where("end_time >= ?", startTime).
+		Find(&txs).Error
+	return txs, err
+}

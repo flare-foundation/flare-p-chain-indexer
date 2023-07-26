@@ -40,9 +40,11 @@ func pchainIndexerTestConfig(batchSize int, startIndex uint64) *config.Config {
 			BatchSize:     batchSize,
 			StartIndex:    startIndex,
 		},
-		UptimeCronjob: config.CronjobConfig{
-			Enabled:        true,
-			TimeoutSeconds: 60,
+		UptimeCronjob: config.UptimeCronjobConfig{
+			CronjobConfig: config.CronjobConfig{
+				Enabled:        true,
+				TimeoutSeconds: 60,
+			},
 		},
 		DB: globalConfig.DBConfig{
 			Username:   database.MysqlTestUser,
