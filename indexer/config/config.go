@@ -33,8 +33,8 @@ type CronjobConfig struct {
 
 type UptimeCronjobConfig struct {
 	CronjobConfig
-	AggregateStartTimestamp  uint64 `toml:"aggregate_start_timestamp"`
-	AggregateIntervalSeconds uint   `toml:"aggregate_interval_seconds"`
+	AggregateStartTimestamp  int64 `toml:"aggregate_start_timestamp"`
+	AggregateIntervalSeconds int64 `toml:"aggregate_interval_seconds"`
 }
 
 func newConfig() *Config {

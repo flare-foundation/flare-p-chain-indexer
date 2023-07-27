@@ -17,19 +17,14 @@ type uptimeCronjob struct {
 	db     *gorm.DB
 
 	client jsonrpc.RPCClient
-
-	aggregator *UptimeAggregator
 }
 
 func NewUptimeCronjob(ctx context.IndexerContext) Cronjob {
 	client := jsonrpc.NewClient(utils.JoinPaths(ctx.Config().Chain.NodeURL, "ext/bc/P"+chain.RPCClientOptions(ctx.Config().Chain.ApiKey)))
-	config := ctx.Config().UptimeCronjob
-	db := ctx.DB()
 	return &uptimeCronjob{
-		config:     config,
-		db:         db,
-		client:     client,
-		aggregator: NewUptimeAggregator(config.AggregateStartTimestamp, config.AggregateIntervalSeconds, db),
+		config: ctx.Config().UptimeCronjob,
+		db:     ctx.DB(),
+		client: client,
 	}
 }
 
@@ -55,13 +50,6 @@ func (c *uptimeCronjob) OnStart() error {
 }
 
 func (c *uptimeCronjob) Call() error {
-	err := c.callUptime()
-	// Call aggregator regardeless of error
-	c.aggregator.Run()
-	return err
-}
-
-func (c *uptimeCronjob) callUptime() error {
 	validators, status, err := CallPChainGetConnectedValidators(c.client)
 	if err != nil {
 		return err
@@ -76,7 +64,7 @@ func (c *uptimeCronjob) callUptime() error {
 			Timestamp: now,
 		}}
 	} else {
-		entities := make([]*database.UptimeCronjob, len(validators))
+		entities = make([]*database.UptimeCronjob, len(validators))
 		for i, v := range validators {
 			nodeID := v.NodeID.String()
 			var status database.UptimeCronjobStatus

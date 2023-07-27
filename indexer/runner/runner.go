@@ -15,6 +15,8 @@ func Start(ctx context.IndexerContext) {
 	go pIndexer.Run()
 
 	uptimeCronjob := cronjob.NewUptimeCronjob(ctx)
+	aggregationCronjob := cronjob.NewAggregationCronjob(ctx)
 
 	go cronjob.RunCronjob(uptimeCronjob)
+	go cronjob.RunCronjob(aggregationCronjob)
 }

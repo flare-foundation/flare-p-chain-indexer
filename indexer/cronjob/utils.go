@@ -28,7 +28,7 @@ func CallPChainGetConnectedValidators(client jsonrpc.RPCClient) ([]*api.Permissi
 	case nil:
 		reply := PermissionedValidators{}
 		err = response.GetObject(&reply)
-		return reply.Validators, 0, nil
+		return reply.Validators, 0, err
 	case *jsonrpc.HTTPError:
 		return nil, -2, nil
 	default:
