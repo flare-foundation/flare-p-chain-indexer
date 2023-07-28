@@ -124,6 +124,7 @@ func (a *uptimeAggregator) Call() error {
 			})
 
 			nodeConnectedTime := int64(0)
+			stakingDuration := int64(0)
 			for ; idx < len(stakingIntervals) && stakingIntervals[idx].nodeID == nodeID; idx++ {
 				start, end := utils.IntervalIntersection(stakingIntervals[idx].start, stakingIntervals[idx].end, epochStart, epochEnd)
 				if end <= start {
@@ -134,13 +135,15 @@ func (a *uptimeAggregator) Call() error {
 					return fmt.Errorf("failed aggregating node uptime %w", err)
 				}
 				nodeConnectedTime += ct
+				stakingDuration += end - start
 			}
 			aggregations = append(aggregations, &database.UptimeAggregation{
-				NodeID:    nodeID,
-				Epoch:     int(epoch),
-				Value:     nodeConnectedTime,
-				StartTime: time.Unix(epochStart, 0),
-				EndTime:   time.Unix(epochEnd, 0),
+				NodeID:          nodeID,
+				Epoch:           int(epoch),
+				StartTime:       time.Unix(epochStart, 0),
+				EndTime:         time.Unix(epochEnd, 0),
+				Value:           nodeConnectedTime,
+				StakingDuration: stakingDuration,
 			})
 		}
 		logger.Info("Aggregated uptime for epoch %d", epoch)

@@ -21,15 +21,20 @@ type UptimeCronjob struct {
 	Status    UptimeCronjobStatus
 }
 
-// Start time and end time of the aggregation period are redundant since they can
-// be calculated from epoch
 type UptimeAggregation struct {
 	BaseEntity
-	Epoch     int `gorm:"uniqueIndex:idx_epoch_node_index;index"`
+	Epoch int `gorm:"uniqueIndex:idx_epoch_node_index;index"`
+
+	// Start time and end time of the aggregation period are redundant since they can
+	// be calculated from epoch
 	StartTime time.Time
 	EndTime   time.Time
-	NodeID    string `gorm:"uniqueIndex:idx_epoch_node_index;type:varchar(60)"`
+
+	NodeID string `gorm:"uniqueIndex:idx_epoch_node_index;type:varchar(60)"`
 
 	// Uptime in seconds in the given epoch interval [StartTime, EndTime]
 	Value int64
+
+	// Length of the staking interval(s) intersecting with the epoch interval
+	StakingDuration int64
 }
