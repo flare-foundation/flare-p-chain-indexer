@@ -13,7 +13,7 @@ import (
 )
 
 type uptimeCronjob struct {
-	config config.UptimeConfig
+	config config.CronjobConfig
 	db     *gorm.DB
 
 	client jsonrpc.RPCClient
@@ -40,44 +40,19 @@ func (c *uptimeCronjob) Enabled() bool {
 	return c.config.Enabled
 }
 
-func (c *uptimeCronjob) OnStart() error {
-	entities := []*database.UptimeCronjob{&database.UptimeCronjob{
-		NodeID:    nil,
-		Status:    database.UptimeCronjobStatusIndexerStarted,
-		Timestamp: time.Now(),
-	}}
-	return database.CreateUptimeCronjobEntry(c.db, entities)
-}
-
 func (c *uptimeCronjob) Call() error {
-	validators, status, err := CallPChainGetConnectedValidators(c.client)
+	validators, err := CallPChainGetConnectedValidators(c.client)
 	if err != nil {
 		return err
 	}
 
 	now := time.Now()
-	var entities []*database.UptimeCronjob
-	if status < 0 {
-		entities = []*database.UptimeCronjob{&database.UptimeCronjob{
-			NodeID:    nil,
-			Status:    database.UptimeCronjobStatus(status),
+	entities := make([]*database.UptimeCronjob, len(validators))
+	for i, v := range validators {
+		entities[i] = &database.UptimeCronjob{
+			NodeID:    v.NodeID.String(),
+			Connected: v.Connected,
 			Timestamp: now,
-		}}
-	} else {
-		entities = make([]*database.UptimeCronjob, len(validators))
-		for i, v := range validators {
-			nodeID := v.NodeID.String()
-			var status database.UptimeCronjobStatus
-			if v.Connected {
-				status = database.UptimeCronjobStatusConnected
-			} else {
-				status = database.UptimeCronjobStatusDisconnected
-			}
-			entities[i] = &database.UptimeCronjob{
-				NodeID:    &nodeID,
-				Status:    status,
-				Timestamp: now,
-			}
 		}
 	}
 	return database.CreateUptimeCronjobEntry(c.db, entities)

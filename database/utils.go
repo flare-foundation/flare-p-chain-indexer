@@ -23,7 +23,6 @@ var (
 		PChainTxInput{},
 		PChainTxOutput{},
 		UptimeCronjob{},
-		UptimeAggregation{},
 	}
 )
 

@@ -86,10 +86,6 @@ func (c *votingCronjob) TimeoutSeconds() int {
 	return c.timeout
 }
 
-func (c *votingCronjob) OnStart() error {
-	return nil
-}
-
 func (c *votingCronjob) Call() error {
 	idxState, err := database.FetchState(c.db, pchain.StateName)
 	if err != nil {
