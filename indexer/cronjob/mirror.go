@@ -96,6 +96,10 @@ func (c *mirrorCronJob) TimeoutSeconds() int {
 	return c.epochs.periodSeconds
 }
 
+func (c *mirrorCronJob) OnStart() error {
+	return nil
+}
+
 func (c *mirrorCronJob) Call() error {
 	epochRange, err := c.getEpochRange()
 	if err != nil {

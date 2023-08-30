@@ -20,13 +20,17 @@ func Start(ctx context.IndexerContext) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	uptimeCronjob := cronjob.NewUptimeCronjob(ctx)
+	uptimeVotingCronjob, err := cronjob.NewUptimeVotingCronjob(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	go xIndexer.Run()
 	go pIndexer.Run()
 
-	uptimeCronjob := cronjob.NewUptimeCronjob(ctx)
-
 	go cronjob.RunCronjob(uptimeCronjob)
 	go cronjob.RunCronjob(votingCronjob)
 	go cronjob.RunCronjob(mirrorCronjob)
+	go cronjob.RunCronjob(uptimeVotingCronjob)
 }

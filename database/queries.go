@@ -1,6 +1,8 @@
 package database
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -37,4 +39,29 @@ func CreateUptimeCronjobEntry(db *gorm.DB, entities []*UptimeCronjob) error {
 		return db.Create(entities).Error
 	}
 	return nil
+}
+
+func FetchLastUptimeAggregation(db *gorm.DB) (*UptimeAggregation, error) {
+	var lastAggregation UptimeAggregation
+	err := db.Order("epoch desc").First(&lastAggregation).Error
+	if err == nil {
+		return &lastAggregation, nil
+	} else if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	} else {
+		return nil, err
+	}
+}
+
+func FetchNodeUptimes(db *gorm.DB, nodeID string, startTime time.Time, endTime time.Time) ([]UptimeCronjob, error) {
+	var uptimes []UptimeCronjob
+	err := db.Where("node_id = ? AND timestamp >= ? AND timestamp < ?", nodeID, startTime, endTime).Order("timestamp asc").Find(&uptimes).Error
+	return uptimes, err
+}
+
+func PersistUptimeAggregations(db *gorm.DB, aggregations []*UptimeAggregation) error {
+	if len(aggregations) == 0 {
+		return nil
+	}
+	return db.Create(aggregations).Error
 }

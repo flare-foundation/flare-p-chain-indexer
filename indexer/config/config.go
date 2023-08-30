@@ -2,6 +2,7 @@ package config
 
 import (
 	"flare-indexer/config"
+	"flare-indexer/utils"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -14,7 +15,7 @@ type Config struct {
 	Metrics       MetricsConfig       `toml:"metrics"`
 	XChainIndexer IndexerConfig       `toml:"x_chain_indexer"`
 	PChainIndexer IndexerConfig       `toml:"p_chain_indexer"`
-	UptimeCronjob CronjobConfig       `toml:"uptime_cronjob"`
+	UptimeCronjob UptimeConfig        `toml:"uptime_cronjob"`
 	Mirror        MirrorConfig        `toml:"mirroring_cronjob"`
 	VotingCronjob VotingConfig        `toml:"voting_cronjob"`
 	Epochs        EpochConfig         `toml:"epochs"`
@@ -39,7 +40,7 @@ type CronjobConfig struct {
 
 type MirrorConfig struct {
 	CronjobConfig
-	MirroringContract common.Address `toml:"mirroring_contract" envconfig:"MIRRORING_CONTRACT"`
+	MirroringContract common.Address `toml:"mirroring_contract" envconfig:"MIRRORING_CONTRACT_ADDRESS"`
 }
 
 type VotingConfig struct {
@@ -48,8 +49,16 @@ type VotingConfig struct {
 }
 
 type EpochConfig struct {
-	Period time.Duration `toml:"epoch_period" envconfig:"EPOCH_PERIOD"`
-	Start  time.Time     `toml:"epoch_time" envconfig:"EPOCH_TIME"`
+	Period time.Duration   `toml:"epoch_period" envconfig:"EPOCH_PERIOD"`
+	Start  utils.Timestamp `toml:"epoch_time" envconfig:"EPOCH_TIME"`
+}
+
+type UptimeConfig struct {
+	CronjobConfig
+	EpochConfig
+	EnableVoting    bool          `toml:"enable_voting"`
+	VotingInterval  time.Duration `toml:"voting_interval"`
+	UptimeThreshold float64       `toml:"uptime_threshold"`
 }
 
 func newConfig() *Config {
@@ -66,9 +75,11 @@ func newConfig() *Config {
 			BatchSize:     10,
 			StartIndex:    0,
 		},
-		UptimeCronjob: CronjobConfig{
-			Enabled:        false,
-			TimeoutSeconds: 60,
+		UptimeCronjob: UptimeConfig{
+			CronjobConfig: CronjobConfig{
+				Enabled:        false,
+				TimeoutSeconds: 60,
+			},
 		},
 		Chain: config.ChainConfig{
 			NodeURL: "http://localhost:9650/",
