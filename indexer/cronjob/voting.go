@@ -39,7 +39,7 @@ type votingCronjob struct {
 type votingDB interface {
 	FetchState(name string) (database.State, error)
 	FetchPChainVotingData(start, end time.Time) ([]database.PChainTxData, error)
-	UpdateState(state *database.State) error
+	UpdateState(epoch int64, force bool) error
 }
 
 type votingContract interface {
@@ -121,12 +121,6 @@ func (c *votingCronjob) Call() error {
 			return err
 		}
 		logger.Info("Submitted votes for epoch %d", e)
-
-		// Update state
-		state.NextDBIndex = uint64(e + 1)
-		if err := c.db.UpdateState(&state); err != nil {
-			return err
-		}
 	}
 	return nil
 }
@@ -139,6 +133,10 @@ func (c *votingCronjob) submitVotes(e int64, votingData []database.PChainTxData)
 		return err
 	}
 	if !shouldVote {
+		// Update state
+		if err := c.db.UpdateState(e+1, false); err != nil {
+			return err
+		}
 		return nil
 	}
 
@@ -161,12 +159,7 @@ func (c *votingCronjob) reset(firstEpoch int64) error {
 	}
 
 	logger.Info("Resetting voting cronjob state to epoch %d", firstEpoch)
-	state, err := c.db.FetchState(votingStateName)
-	if err != nil {
-		return err
-	}
-	state.NextDBIndex = uint64(firstEpoch)
-	err = c.db.UpdateState(&state)
+	err := c.db.UpdateState(firstEpoch, true)
 	if err != nil {
 		return err
 	}

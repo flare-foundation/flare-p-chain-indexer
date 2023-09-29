@@ -47,6 +47,7 @@ type MirrorConfig struct {
 type VotingConfig struct {
 	CronjobConfig
 	config.EpochConfig
+	GasLimit uint64 `toml:"gas_limit" envconfig:"VOTING_GAS_LIMIT"`
 }
 
 type UptimeConfig struct {

@@ -37,8 +37,16 @@ func (db *votingDBTest) FetchPChainVotingData(start, end time.Time) ([]database.
 	return db.votingData[timeRange{start, end}], nil
 }
 
-func (db *votingDBTest) UpdateState(state *database.State) error {
-	db.states[state.Name] = *state
+func (db *votingDBTest) UpdateState(epoch int64, force bool) error {
+	if state, ok := db.states[votingStateName]; ok {
+		if !force && state.NextDBIndex >= uint64(epoch) {
+			return nil
+		}
+	}
+	db.states[votingStateName] = database.State{
+		Name:        votingStateName,
+		NextDBIndex: uint64(epoch),
+	}
 	return nil
 }
 
@@ -59,6 +67,7 @@ func (c *votingContractTest) SubmitVote(epoch *big.Int, merkleRoot [32]byte) err
 	}
 
 	c.submittedVotes[epochInt] = merkleRoot
+	c.shouldVote[epochInt] = false
 	return nil
 }
 
