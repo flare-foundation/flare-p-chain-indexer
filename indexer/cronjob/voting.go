@@ -104,6 +104,8 @@ func (c *votingCronjob) Call() error {
 	// Last epoch that was submitted to the contract
 	epochRange := c.getEpochRange(int64(state.NextDBIndex), now)
 	logger.Debug("Voting needed for epochs [%d, %d]", epochRange.start, epochRange.end)
+	next := epochRange.start
+	votedInBatch := false
 	for e := epochRange.start; e <= epochRange.end; e++ {
 		start, end := c.epochs.GetTimeRange(e)
 
@@ -116,28 +118,33 @@ func (c *votingCronjob) Call() error {
 		if err != nil {
 			return err
 		}
-		err = c.submitVotes(e, votingData)
+		voted, err := c.submitVotes(e, votingData)
 		if err != nil {
 			return err
 		}
-		logger.Info("Submitted votes for epoch %d", e)
+		if voted {
+			votedInBatch = true
+			logger.Info("Submitted vote for epoch %d", e)
+		} else {
+			if !votedInBatch {
+				next = e + 1
+			}
+			logger.Debug("Voting not needed for epoch %d", e)
+		}
 	}
-	return nil
+	return c.db.UpdateState(next, false)
 }
 
-func (c *votingCronjob) submitVotes(e int64, votingData []database.PChainTxData) error {
+// Return true if the vote was submitted, and false if shouldVote returned false
+func (c *votingCronjob) submitVotes(e int64, votingData []database.PChainTxData) (bool, error) {
 	votingData = staking.DedupeTxs(votingData)
 
 	shouldVote, err := c.contract.ShouldVote(big.NewInt(e))
 	if err != nil {
-		return err
+		return false, err
 	}
 	if !shouldVote {
-		// Update state
-		if err := c.db.UpdateState(e+1, false); err != nil {
-			return err
-		}
-		return nil
+		return false, nil
 	}
 
 	var merkleRoot common.Hash
@@ -146,11 +153,11 @@ func (c *votingCronjob) submitVotes(e int64, votingData []database.PChainTxData)
 	} else {
 		merkleRoot, err = staking.GetMerkleRoot(votingData)
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
 	err = c.contract.SubmitVote(big.NewInt(e), [32]byte(merkleRoot))
-	return err
+	return true, err
 }
 
 func (c *votingCronjob) reset(firstEpoch int64) error {
