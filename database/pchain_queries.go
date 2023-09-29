@@ -187,7 +187,8 @@ func FetchPChainTxData(db *gorm.DB, txID string, address string) (*PChainTxData,
 		Where("p_chain_txes.tx_id = ?", txID).
 		Where("inputs.address = ?", address).
 		Group("p_chain_txes.id").
-		Select("p_chain_txes.*, inputs.address as input_address, inputs.in_idx as input_index").
+		// any_value is used to avoid only_full_group_by error
+		Select("p_chain_txes.*, any_value(inputs.address) as input_address, min(inputs.in_idx) as input_index").
 		First(&tx).Error
 	if err == nil {
 		return &tx, nil
