@@ -22,7 +22,7 @@ type Config struct {
 }
 
 type MetricsConfig struct {
-	PrometheusAddress string `toml:"prometheus_address envconfig:"PROMETHEUS_ADDRESS"`
+	PrometheusAddress string `toml:"prometheus_address" envconfig:"PROMETHEUS_ADDRESS"`
 }
 
 type IndexerConfig struct {
