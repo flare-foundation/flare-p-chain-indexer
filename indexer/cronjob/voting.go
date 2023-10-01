@@ -39,7 +39,7 @@ type votingCronjob struct {
 type votingDB interface {
 	FetchState(name string) (database.State, error)
 	FetchPChainVotingData(start, end time.Time) ([]database.PChainTxData, error)
-	UpdateState(epoch int64, force bool) error
+	UpdateState(state *database.State) error
 }
 
 type votingContract interface {
@@ -104,7 +104,6 @@ func (c *votingCronjob) Call() error {
 	// Last epoch that was submitted to the contract
 	epochRange := c.getEpochRange(int64(state.NextDBIndex), now)
 	logger.Debug("Voting needed for epochs [%d, %d]", epochRange.start, epochRange.end)
-	next := epochRange.start
 	votedInBatch := false
 	for e := epochRange.start; e <= epochRange.end; e++ {
 		start, end := c.epochs.GetTimeRange(e)
@@ -127,12 +126,15 @@ func (c *votingCronjob) Call() error {
 			logger.Info("Submitted vote for epoch %d", e)
 		} else {
 			if !votedInBatch {
-				next = e + 1
+				state.NextDBIndex = uint64(e + 1)
+				if err := c.db.UpdateState(&state); err != nil {
+					return err
+				}
 			}
 			logger.Debug("Voting not needed for epoch %d", e)
 		}
 	}
-	return c.db.UpdateState(next, false)
+	return nil
 }
 
 // Return true if the vote was submitted, and false if shouldVote returned false
@@ -166,7 +168,12 @@ func (c *votingCronjob) reset(firstEpoch int64) error {
 	}
 
 	logger.Info("Resetting voting cronjob state to epoch %d", firstEpoch)
-	err := c.db.UpdateState(firstEpoch, true)
+	state, err := c.db.FetchState(votingStateName)
+	if err != nil {
+		return err
+	}
+	state.NextDBIndex = uint64(firstEpoch)
+	err = c.db.UpdateState(&state)
 	if err != nil {
 		return err
 	}
