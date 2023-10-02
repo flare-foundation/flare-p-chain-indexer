@@ -111,7 +111,6 @@ func (c *mirrorCronJob) Call() error {
 }
 
 var errNoEpochsToMirror = errors.New("no epochs to mirror")
-var errAddressBinderBehind = errors.New("waiting for address binder")
 
 func (c *mirrorCronJob) getEpochRange() (*epochRange, error) {
 	now := c.time.Now()

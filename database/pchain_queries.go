@@ -73,7 +73,7 @@ func FetchPChainStakingTransactions(
 		query = query.Joins("left join p_chain_tx_inputs as inputs on inputs.tx_id = p_chain_txes.tx_id").
 			Where("inputs.address = ?", address)
 	}
-	err := query.Offset(offset).Limit(limit).Order("p_chain_txes.id").
+	err := query.Offset(offset).Limit(limit).Order("p_chain_txes.tx_id").
 		Distinct().Select("p_chain_txes.tx_id").Find(&validatorTxs).Error
 	if err != nil {
 		return nil, err
@@ -140,7 +140,7 @@ func FetchPChainTransferTransactions(
 				Where("inputs.address = ?", address)
 		}
 	}
-	err := query.Offset(offset).Limit(limit).Order("p_chain_txes.id").
+	err := query.Offset(offset).Limit(limit).Order("p_chain_txes.tx_id").
 		Distinct().Select("p_chain_txes.tx_id").Find(&txs).Error
 	if err != nil {
 		return nil, err
