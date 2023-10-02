@@ -1,5 +1,5 @@
-// Stubs for the mirror cronjob. These handle the direct interactions with DB
-// and contracts. The actual logic is in mirror.go, which is unit-tested.
+// Stubs for the address binder cronjob. These handle the direct interactions with DB
+// and contracts. The actual logic is in address_binder.go, which is unit-tested.
 package cronjob
 
 import (
@@ -22,21 +22,21 @@ import (
 	"gorm.io/gorm"
 )
 
-type mirrorDBGorm struct {
+type addressBinderDBGorm struct {
 	db *gorm.DB
 }
 
-func NewMirrorDBGorm(db *gorm.DB) mirrorDB {
-	return mirrorDBGorm{db: db}
+func NewAddressBinderDBGorm(db *gorm.DB) addressBinderDB {
+	return addressBinderDBGorm{db: db}
 }
 
-func (m mirrorDBGorm) FetchState(name string) (database.State, error) {
+func (m addressBinderDBGorm) FetchState(name string) (database.State, error) {
 	return database.FetchState(m.db, name)
 }
 
-func (m mirrorDBGorm) UpdateJobState(epoch int64, force bool) error {
+func (m addressBinderDBGorm) UpdateJobState(epoch int64, force bool) error {
 	return m.db.Transaction(func(tx *gorm.DB) error {
-		jobState, err := database.FetchState(tx, mirrorStateName)
+		jobState, err := database.FetchState(tx, addressBinderStateName)
 		if err != nil {
 			return errors.Wrap(err, "database.FetchState")
 		}
@@ -47,12 +47,11 @@ func (m mirrorDBGorm) UpdateJobState(epoch int64, force bool) error {
 		}
 
 		jobState.NextDBIndex = uint64(epoch)
-
 		return database.UpdateState(tx, &jobState)
 	})
 }
 
-func (m mirrorDBGorm) GetPChainTxsForEpoch(start, end time.Time) ([]database.PChainTxData, error) {
+func (m addressBinderDBGorm) GetPChainTxsForEpoch(start, end time.Time) ([]database.PChainTxData, error) {
 	return database.GetPChainTxsForEpoch(&database.GetPChainTxsForEpochInput{
 		DB:             m.db,
 		StartTimestamp: start,
@@ -60,18 +59,18 @@ func (m mirrorDBGorm) GetPChainTxsForEpoch(start, end time.Time) ([]database.PCh
 	})
 }
 
-func (m mirrorDBGorm) GetPChainTx(txID string, address string) (*database.PChainTxData, error) {
+func (m addressBinderDBGorm) GetPChainTx(txID string, address string) (*database.PChainTxData, error) {
 	return database.FetchPChainTxData(m.db, txID, address)
 }
 
-type mirrorContractsCChain struct {
+type addressBinderContractsCChain struct {
 	mirroring     *mirroring.Mirroring
 	addressBinder *addresses.Binder
 	txOpts        *bind.TransactOpts
 	voting        *voting.Voting
 }
 
-func initMirrorJobContracts(cfg *config.Config) (mirrorContracts, error) {
+func initAddressBinderJobContracts(cfg *config.Config) (addressBinderContracts, error) {
 	if cfg.ContractAddresses.Mirroring == (common.Address{}) {
 		return nil, errors.New("mirroring contract address not set")
 	}
@@ -110,7 +109,7 @@ func initMirrorJobContracts(cfg *config.Config) (mirrorContracts, error) {
 		return nil, err
 	}
 
-	return &mirrorContractsCChain{
+	return &addressBinderContractsCChain{
 		mirroring:     mirroringContract,
 		addressBinder: addressBinderContract,
 		txOpts:        txOpts,
@@ -118,19 +117,22 @@ func initMirrorJobContracts(cfg *config.Config) (mirrorContracts, error) {
 	}, nil
 }
 
-func (m mirrorContractsCChain) GetMerkleRoot(epoch int64) ([32]byte, error) {
+func newAddressBinderContract(
+	eth *ethclient.Client, mirroringContract *mirroring.Mirroring,
+) (*addresses.Binder, error) {
+	addressBinderAddress, err := mirroringContract.AddressBinder(new(bind.CallOpts))
+	if err != nil {
+		return nil, err
+	}
+
+	return addresses.NewBinder(addressBinderAddress, eth)
+}
+
+func (m addressBinderContractsCChain) GetMerkleRoot(epoch int64) ([32]byte, error) {
 	return m.voting.GetMerkleRoot(new(bind.CallOpts), big.NewInt(epoch))
 }
 
-func (m mirrorContractsCChain) MirrorStake(
-	stakeData *mirroring.IPChainStakeMirrorVerifierPChainStake,
-	merkleProof [][32]byte,
-) error {
-	_, err := m.mirroring.MirrorStake(m.txOpts, *stakeData, merkleProof)
-	return err
-}
-
-func (m mirrorContractsCChain) IsAddressRegistered(address string) (bool, error) {
+func (m addressBinderContractsCChain) IsAddressRegistered(address string) (bool, error) {
 	addressBytes, err := chain.ParseAddress(address)
 	if err != nil {
 		return false, err
@@ -142,7 +144,7 @@ func (m mirrorContractsCChain) IsAddressRegistered(address string) (bool, error)
 	return boundAddress != (common.Address{}), nil
 }
 
-func (m mirrorContractsCChain) RegisterPublicKey(publicKey crypto.PublicKey) error {
+func (m addressBinderContractsCChain) RegisterPublicKey(publicKey crypto.PublicKey) error {
 	ethAddress, err := chain.PublicKeyToEthAddress(publicKey)
 	if err != nil {
 		return err
@@ -151,6 +153,6 @@ func (m mirrorContractsCChain) RegisterPublicKey(publicKey crypto.PublicKey) err
 	return err
 }
 
-func (m mirrorContractsCChain) EpochConfig() (start time.Time, period time.Duration, err error) {
+func (m addressBinderContractsCChain) EpochConfig() (start time.Time, period time.Duration, err error) {
 	return staking.GetEpochConfig(m.voting)
 }

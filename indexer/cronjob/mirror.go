@@ -3,10 +3,8 @@ package cronjob
 import (
 	"flare-indexer/database"
 	indexerctx "flare-indexer/indexer/context"
-	"flare-indexer/indexer/pchain"
 	"flare-indexer/logger"
 	"flare-indexer/utils"
-	"flare-indexer/utils/chain"
 	"flare-indexer/utils/contracts/mirroring"
 	"flare-indexer/utils/merkle"
 	"flare-indexer/utils/staking"
@@ -79,10 +77,6 @@ func (c *mirrorCronJob) Name() string {
 	return "mirror"
 }
 
-func (c *mirrorCronJob) Timeout() time.Duration {
-	return c.epochs.Period
-}
-
 func (c *mirrorCronJob) OnStart() error {
 	return nil
 }
@@ -100,18 +94,7 @@ func (c *mirrorCronJob) Call() error {
 
 	logger.Debug("mirroring epochs %d-%d", epochRange.start, epochRange.end)
 
-	idxState, err := c.db.FetchState(pchain.StateName)
-	if err != nil {
-		return err
-	}
-
 	for epoch := epochRange.start; epoch <= epochRange.end; epoch++ {
-		// Skip updating if indexer is behind
-		if c.indexerBehind(&idxState, epoch) {
-			logger.Debug("indexer is behind, skipping mirror")
-			return nil
-		}
-
 		logger.Debug("mirroring epoch %d", epoch)
 		if err := c.mirrorEpoch(epoch); err != nil {
 			return err
@@ -128,57 +111,34 @@ func (c *mirrorCronJob) Call() error {
 }
 
 var errNoEpochsToMirror = errors.New("no epochs to mirror")
+var errAddressBinderBehind = errors.New("waiting for address binder")
 
 func (c *mirrorCronJob) getEpochRange() (*epochRange, error) {
-	startEpoch, err := c.getStartEpoch()
+	now := c.time.Now()
+	binderJobState, err := c.db.FetchState(addressBinderStateName)
 	if err != nil {
 		return nil, err
 	}
-
-	logger.Debug("start epoch: %d", startEpoch)
-
-	endEpoch, err := c.getEndEpoch(startEpoch)
-	if err != nil {
-		return nil, err
-	}
-	logger.Debug("Mirroring needed for epochs [%d, %d]", startEpoch, endEpoch)
-	return c.getTrimmedEpochRange(startEpoch, endEpoch), nil
-}
-
-func (c *mirrorCronJob) getStartEpoch() (int64, error) {
 	jobState, err := c.db.FetchState(mirrorStateName)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-
-	return int64(jobState.NextDBIndex), nil
-}
-
-func (c *mirrorCronJob) getEndEpoch(startEpoch int64) (int64, error) {
-	currEpoch := c.epochs.GetEpochIndex(c.time.Now())
-	logger.Debug("current epoch: %d", currEpoch)
-
-	for epoch := currEpoch; epoch > startEpoch; epoch-- {
-		confirmed, err := c.isEpochConfirmed(epoch)
-		if err != nil {
-			return 0, err
-		}
-
-		if confirmed {
-			return epoch, nil
+	startEpoch := int64(jobState.NextDBIndex)
+	endEpoch := int64(binderJobState.NextDBIndex) - 1
+	for startEpoch <= endEpoch {
+		endTime := c.epochs.GetEndTime(endEpoch)
+		if endTime.After(now.Add(-c.epochs.Period)) {
+			endEpoch--
+		} else {
+			break
 		}
 	}
-
-	return 0, errNoEpochsToMirror
-}
-
-func (c *mirrorCronJob) isEpochConfirmed(epoch int64) (bool, error) {
-	merkleRoot, err := c.contracts.GetMerkleRoot(epoch)
-	if err != nil {
-		return false, errors.Wrap(err, "votingContract.GetMerkleRoot")
+	if startEpoch > endEpoch {
+		return nil, errNoEpochsToMirror
 	}
 
-	return merkleRoot != [32]byte{}, nil
+	logger.Debug("Mirroring needed for epochs [%d, %d]", startEpoch, endEpoch)
+	return c.getTrimmedEpochRange(startEpoch, endEpoch), nil
 }
 
 func (c *mirrorCronJob) mirrorEpoch(epoch int64) error {
@@ -271,13 +231,6 @@ func (c *mirrorCronJob) mirrorTx(in *mirrorTxInput) error {
 		return err
 	}
 
-	// Register addresses if needed, do not fail if not successful
-	if err := c.registerAddress(*in.tx.TxID, in.tx.InputAddress); err != nil {
-		logger.Error("error registering address: %s", err.Error())
-	} else {
-		logger.Info("registered address %s on address binder contract", in.tx.InputAddress)
-	}
-
 	logger.Debug("mirroring tx %s", *in.tx.TxID)
 	err = c.contracts.MirrorStake(stakeData, merkleProof)
 	if err != nil {
@@ -309,35 +262,6 @@ func (c *mirrorCronJob) mirrorTx(in *mirrorTxInput) error {
 		return errors.Wrap(err, "mirroringContract.MirrorStake")
 	}
 
-	return nil
-}
-
-func (c *mirrorCronJob) registerAddress(txID string, address string) error {
-	registered, err := c.contracts.IsAddressRegistered(address)
-	if err != nil || registered {
-		return err
-	}
-	tx, err := c.db.GetPChainTx(txID, address)
-	if err != nil {
-		return err
-	}
-	if tx == nil {
-		return errors.New("tx not found")
-	}
-	publicKeys, err := chain.PublicKeysFromPChainBlock(tx.Bytes)
-	if err != nil {
-		return err
-	}
-	if tx.InputIndex >= uint32(len(publicKeys)) {
-		return errors.New("input index out of range")
-	}
-	publicKey := publicKeys[tx.InputIndex]
-	for _, k := range publicKey {
-		err := c.contracts.RegisterPublicKey(k)
-		if err != nil {
-			return errors.Wrap(err, "mirroringContract.RegisterPublicKey")
-		}
-	}
 	return nil
 }
 
