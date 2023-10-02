@@ -39,6 +39,10 @@ func (c *uptimeCronjob) Enabled() bool {
 	return c.config.Enabled
 }
 
+func (c *uptimeCronjob) RandomTimeoutDelta() time.Duration {
+	return 0
+}
+
 func (c *uptimeCronjob) OnStart() error {
 	entities := []*database.UptimeCronjob{&database.UptimeCronjob{
 		NodeID:    nil,

@@ -88,6 +88,10 @@ func (c *votingCronjob) OnStart() error {
 	return nil
 }
 
+func (c *votingCronjob) RandomTimeoutDelta() time.Duration {
+	return 10 * time.Second
+}
+
 func (c *votingCronjob) Call() error {
 	idxState, err := c.db.FetchState(pchain.StateName)
 	if err != nil {

@@ -13,6 +13,7 @@ type Cronjob interface {
 	Name() string
 	Enabled() bool
 	Timeout() time.Duration
+	RandomTimeoutDelta() time.Duration
 	Call() error
 	OnStart() error
 }
@@ -31,8 +32,9 @@ func RunCronjob(c Cronjob) {
 
 	logger.Debug("starting %s cronjob", c.Name())
 
-	ticker := time.NewTicker(c.Timeout())
-	for range ticker.C {
+	ticker := utils.NewRandomizedTicker(c.Timeout(), c.RandomTimeoutDelta())
+	for {
+		<-ticker
 		err := c.Call()
 		if err != nil {
 			logger.Error("%s cronjob error %s", c.Name(), err.Error())
@@ -73,6 +75,10 @@ func (c *epochCronjob) Enabled() bool {
 
 func (c *epochCronjob) Timeout() time.Duration {
 	return c.timeout
+}
+
+func (c *epochCronjob) RandomTimeoutDelta() time.Duration {
+	return 0
 }
 
 // Get processing range (closed interval)
