@@ -14,10 +14,6 @@ type GetTransferRequest struct {
 	Address string `json:"address"`
 }
 
-type TxIDsResponse struct {
-	TxIDs []string `json:"txIds"`
-}
-
 type transferRouteHandlers struct {
 	db *gorm.DB
 }
@@ -29,15 +25,15 @@ func newTransferRouteHandlers(ctx context.ServicesContext) *transferRouteHandler
 }
 
 func (rh *transferRouteHandlers) listTransferTransactions(txType database.PChainTxType) utils.RouteHandler {
-	handler := func(request GetStakerTxRequest) (GetStakerTxResponse, *utils.ErrorHandler) {
+	handler := func(request GetTransferRequest) (TxIDsResponse, *utils.ErrorHandler) {
 		txIDs, err := database.FetchPChainTransferTransactions(rh.db, txType,
 			request.Address, request.Offset, request.Limit)
 		if err != nil {
-			return GetStakerTxResponse{}, utils.InternalServerErrorHandler(err)
+			return TxIDsResponse{}, utils.InternalServerErrorHandler(err)
 		}
-		return GetStakerTxResponse{TxIDs: txIDs}, nil
+		return TxIDsResponse{TxIDs: txIDs}, nil
 	}
-	return utils.NewRouteHandler(handler, http.MethodPost, GetStakerTxRequest{}, GetStakerTxResponse{})
+	return utils.NewRouteHandler(handler, http.MethodPost, GetTransferRequest{}, TxIDsResponse{})
 }
 
 func AddTransferRoutes(router utils.Router, ctx context.ServicesContext) {

@@ -18,10 +18,6 @@ type GetStakerTxRequest struct {
 	Time    time.Time `json:"time"`
 }
 
-type GetStakerTxResponse struct {
-	TxIDs []string `json:"txIds"`
-}
-
 type GetStakerRequest struct {
 	PaginatedRequest
 	Time time.Time `json:"time"`
@@ -48,15 +44,15 @@ func newStakerRouteHandlers(ctx context.ServicesContext) *stakerRouteHandlers {
 }
 
 func (rh *stakerRouteHandlers) listStakingTransactions(txType database.PChainTxType) utils.RouteHandler {
-	handler := func(request GetStakerTxRequest) (GetStakerTxResponse, *utils.ErrorHandler) {
+	handler := func(request GetStakerTxRequest) (TxIDsResponse, *utils.ErrorHandler) {
 		txIDs, err := database.FetchPChainStakingTransactions(rh.db, txType, request.NodeID,
 			request.Address, request.Time, request.Offset, request.Limit)
 		if err != nil {
-			return GetStakerTxResponse{}, utils.InternalServerErrorHandler(err)
+			return TxIDsResponse{}, utils.InternalServerErrorHandler(err)
 		}
-		return GetStakerTxResponse{TxIDs: txIDs}, nil
+		return TxIDsResponse{TxIDs: txIDs}, nil
 	}
-	return utils.NewRouteHandler(handler, http.MethodPost, GetStakerTxRequest{}, GetStakerTxResponse{})
+	return utils.NewRouteHandler(handler, http.MethodPost, GetStakerTxRequest{}, TxIDsResponse{})
 }
 
 func (rh *stakerRouteHandlers) listStakers(txType database.PChainTxType) utils.RouteHandler {
