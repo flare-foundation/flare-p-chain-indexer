@@ -39,9 +39,9 @@ func ParseTime(s string) time.Time {
 	return time
 }
 
-func NewRandomizedTicker(interval time.Duration, randomDelta time.Duration) chan time.Time {
+func NewRandomizedTicker(interval time.Duration, randomDelta time.Duration) <-chan time.Time {
 	deltaIntervalMs := int(randomDelta.Milliseconds())
-	ch := make(chan time.Time, 1)
+	ch := make(chan time.Time)
 	go func() {
 		for {
 			d := interval + randomDuration(deltaIntervalMs)
