@@ -25,7 +25,8 @@ func main() {
 	routes.AddTransferRoutes(router, ctx)
 	routes.AddStakerRoutes(router, ctx)
 	routes.AddTransactionRoutes(router, ctx)
-	routes.AddQueryRoutes(router, ctx)
+	// Disabled -- state connector routes are currently not used
+	// routes.AddQueryRoutes(router, ctx)
 
 	if err := routes.AddMirroringRoutes(router, ctx); err != nil {
 		logger.Fatal("Failed to add mirroring routes: %v", err)

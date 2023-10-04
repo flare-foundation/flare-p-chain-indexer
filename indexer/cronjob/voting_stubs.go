@@ -3,7 +3,6 @@ package cronjob
 import (
 	"flare-indexer/database"
 	"flare-indexer/indexer/config"
-	"flare-indexer/logger"
 	"flare-indexer/utils/contracts/voting"
 	"flare-indexer/utils/staking"
 	"math/big"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
 
@@ -27,19 +25,8 @@ func (db *votingDBGorm) FetchPChainVotingData(start, end time.Time) ([]database.
 	return database.FetchPChainVotingData(db.g, start, end)
 }
 
-func (db *votingDBGorm) UpdateState(epoch int64, force bool) error {
-	return db.g.Transaction(func(tx *gorm.DB) error {
-		state, err := database.FetchState(tx, votingStateName)
-		if err != nil {
-			return errors.Wrap(err, "database.FetchState")
-		}
-		if !force && state.NextDBIndex >= uint64(epoch) {
-			logger.Debug("state already up to date")
-			return nil
-		}
-		state.NextDBIndex = uint64(epoch)
-		return database.UpdateState(tx, &state)
-	})
+func (db *votingDBGorm) UpdateState(state *database.State) error {
+	return database.UpdateState(db.g, state)
 }
 
 type votingContractCChain struct {

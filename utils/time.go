@@ -1,6 +1,9 @@
 package utils
 
-import "time"
+import (
+	"math/rand"
+	"time"
+)
 
 type ShiftedTime struct {
 	Shift time.Duration
@@ -34,4 +37,25 @@ func ParseTime(s string) time.Time {
 		panic(err)
 	}
 	return time
+}
+
+func NewRandomizedTicker(interval time.Duration, randomDelta time.Duration) chan time.Time {
+	deltaIntervalMs := int(randomDelta.Milliseconds())
+	ch := make(chan time.Time, 1)
+	go func() {
+		for {
+			d := interval + randomDuration(deltaIntervalMs)
+			time.Sleep(d)
+			ch <- time.Now()
+		}
+	}()
+	return ch
+}
+
+func randomDuration(deltaMs int) time.Duration {
+	delta := int64(0)
+	if deltaMs > 0 {
+		delta = int64(rand.Intn(deltaMs))
+	}
+	return time.Duration(delta * int64(time.Millisecond))
 }

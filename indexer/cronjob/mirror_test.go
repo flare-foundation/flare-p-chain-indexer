@@ -169,7 +169,7 @@ func TestMultipleTransactionsInSeparateEpochs(t *testing.T) {
 
 	db := testMirror(t, txsMap, contracts)
 
-	require.Equal(t, db.states[mirrorStateName].NextDBIndex, uint64(3))
+	require.Equal(t, db.states[mirrorStateName].NextDBIndex, uint64(4))
 }
 
 func TestAlreadyMirrored(t *testing.T) {
@@ -238,6 +238,10 @@ func testMirror(
 				LastChainIndex: 2,
 			},
 			mirrorStateName: {},
+			addressBinderStateName: {
+				Updated:     epochInfo.GetEndTime(999),
+				NextDBIndex: 4,
+			},
 		},
 		txs: txs,
 	}
