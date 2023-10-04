@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ava-labs/avalanchego/utils/crypto"
 	"github.com/pkg/errors"
 )
 
@@ -38,8 +37,6 @@ type mirrorContracts interface {
 		stakeData *mirroring.IPChainStakeMirrorVerifierPChainStake,
 		merkleProof [][32]byte,
 	) error
-	IsAddressRegistered(address string) (bool, error)
-	RegisterPublicKey(publicKey crypto.PublicKey) error
 	EpochConfig() (time.Time, time.Duration, error)
 }
 

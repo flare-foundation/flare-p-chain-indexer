@@ -87,10 +87,10 @@ func (c *addressBinderCronJob) Call() error {
 	}
 
 	logger.Debug("registering addresses for epochs %d-%d", epochRange.start, epochRange.end)
-	registered := mapset.NewSet[string]()
+	registeredAddresses := mapset.NewSet[string]()
 	for epoch := epochRange.start; epoch <= epochRange.end; epoch++ {
 		logger.Debug("registering addresses for epoch %d", epoch)
-		if err := c.registerEpoch(registered, epoch); err != nil {
+		if err := c.registerEpoch(registeredAddresses, epoch); err != nil {
 			return err
 		}
 	}
@@ -158,7 +158,7 @@ func (c *addressBinderCronJob) isEpochConfirmed(epoch int64) (bool, error) {
 	return merkleRoot != [32]byte{}, nil
 }
 
-func (c *addressBinderCronJob) registerEpoch(registered mapset.Set[string], epoch int64) error {
+func (c *addressBinderCronJob) registerEpoch(registeredAddresses mapset.Set[string], epoch int64) error {
 	txs, err := c.getEpochTxs(epoch)
 	if err != nil {
 		return err
@@ -170,7 +170,7 @@ func (c *addressBinderCronJob) registerEpoch(registered mapset.Set[string], epoc
 	}
 
 	logger.Info("registering %d txs", len(txs))
-	if err := c.registerTxs(registered, txs, epoch); err != nil {
+	if err := c.registerTxs(registeredAddresses, txs, epoch); err != nil {
 		return err
 	}
 
@@ -188,49 +188,49 @@ func (c *addressBinderCronJob) getEpochTxs(epoch int64) ([]database.PChainTxData
 	return staking.DedupeTxs(txs), nil
 }
 
-func (c *addressBinderCronJob) registerTxs(registered mapset.Set[string], txs []database.PChainTxData, epochID int64) error {
+func (c *addressBinderCronJob) registerTxs(registeredAddresses mapset.Set[string], txs []database.PChainTxData, epochID int64) error {
 	for _, tx := range txs {
-		if registered.Contains(tx.InputAddress) {
+		if registeredAddresses.Contains(tx.InputAddress) {
 			continue
 		}
-		if registered, err := c.registerAddress(*tx.TxID, tx.InputAddress); err != nil {
+		if err := c.registerAddress(*tx.TxID, tx.InputAddress); err != nil {
+			// Non-fatal error, continue registering other addresses
 			logger.Error("error registering address: %s", err.Error())
-		} else if registered {
-			logger.Info("registered address %s on address binder contract", tx.InputAddress)
 		}
-		registered.Add(tx.InputAddress)
+		registeredAddresses.Add(tx.InputAddress)
 	}
 	return nil
 }
 
-// Return false if the address is already registered, true if it was registered successfully
-func (c *addressBinderCronJob) registerAddress(txID string, address string) (bool, error) {
+// Register address on AddressBinder contract if it is not already registered
+func (c *addressBinderCronJob) registerAddress(txID string, address string) error {
 	registered, err := c.contracts.IsAddressRegistered(address)
 	if err != nil || registered {
-		return false, err
+		return err
 	}
 	tx, err := c.db.GetPChainTx(txID, address)
 	if err != nil {
-		return false, err
+		return err
 	}
 	if tx == nil {
-		return false, errors.New("tx not found")
+		return errors.New("tx not found")
 	}
 	publicKeys, err := chain.PublicKeysFromPChainBlock(tx.Bytes)
 	if err != nil {
-		return false, err
+		return err
 	}
 	if tx.InputIndex >= uint32(len(publicKeys)) {
-		return false, errors.New("input index out of range")
+		return errors.New("input index out of range")
 	}
 	publicKey := publicKeys[tx.InputIndex]
 	for _, k := range publicKey {
 		err := c.contracts.RegisterPublicKey(k)
 		if err != nil {
-			return false, errors.Wrap(err, "mirroringContract.RegisterPublicKey")
+			return errors.Wrap(err, "mirroringContract.RegisterPublicKey")
 		}
 	}
-	return true, nil
+	logger.Info("registered address %s on address binder contract", address)
+	return nil
 }
 
 func (c *addressBinderCronJob) reset(firstEpoch int64) error {

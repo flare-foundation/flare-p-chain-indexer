@@ -42,24 +42,20 @@ func ParseTime(s string) time.Time {
 func NewRandomizedTicker(interval time.Duration, randomDelta time.Duration) chan time.Time {
 	deltaIntervalMs := int(randomDelta.Milliseconds())
 	ch := make(chan time.Time, 1)
-	ticker := newRandomTicker(interval, deltaIntervalMs)
 	go func() {
 		for {
-			now := <-ticker.C
-			if deltaIntervalMs > 0 {
-				ticker.Stop()
-				ticker = newRandomTicker(interval, deltaIntervalMs)
-			}
-			ch <- now
+			d := interval + randomDuration(deltaIntervalMs)
+			time.Sleep(d)
+			ch <- time.Now()
 		}
 	}()
 	return ch
 }
 
-func newRandomTicker(interval time.Duration, deltaMs int) *time.Ticker {
+func randomDuration(deltaMs int) time.Duration {
 	delta := int64(0)
 	if deltaMs > 0 {
-		delta = int64(rand.Intn(int(deltaMs)))
+		delta = int64(rand.Intn(deltaMs))
 	}
-	return time.NewTicker(interval + time.Duration(delta*int64(time.Millisecond)))
+	return time.Duration(delta * int64(time.Millisecond))
 }

@@ -64,7 +64,6 @@ func (m addressBinderDBGorm) GetPChainTx(txID string, address string) (*database
 }
 
 type addressBinderContractsCChain struct {
-	mirroring     *mirroring.Mirroring
 	addressBinder *addresses.Binder
 	txOpts        *bind.TransactOpts
 	voting        *voting.Voting
@@ -110,7 +109,6 @@ func initAddressBinderJobContracts(cfg *config.Config) (addressBinderContracts, 
 	}
 
 	return &addressBinderContractsCChain{
-		mirroring:     mirroringContract,
 		addressBinder: addressBinderContract,
 		txOpts:        txOpts,
 		voting:        votingContract,
