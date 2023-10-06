@@ -7,6 +7,8 @@ import (
 	"flare-indexer/utils"
 	"flare-indexer/utils/staking"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type Cronjob interface {
@@ -16,6 +18,7 @@ type Cronjob interface {
 	RandomTimeoutDelta() time.Duration
 	Call() error
 	OnStart() error
+	OnError(err error)
 }
 
 func RunCronjob(c Cronjob) {
@@ -38,6 +41,7 @@ func RunCronjob(c Cronjob) {
 		err := c.Call()
 		if err != nil {
 			logger.Error("%s cronjob error %s", c.Name(), err.Error())
+			c.OnError(err)
 		}
 	}
 }
@@ -52,11 +56,23 @@ type epochCronjob struct {
 	epochs    staking.EpochInfo
 	delay     time.Duration // voting delay
 	batchSize int64
+	metrics   *epochCronjobMetrics
 }
 
 type epochRange struct {
 	start int64
 	end   int64
+}
+
+type epochCronjobMetrics struct {
+	// Current epoch
+	lastEpoch prometheus.Gauge
+
+	// Last processsed epoch
+	lastProcessedEpoch prometheus.Gauge
+
+	// Error count
+	errorCount prometheus.Counter
 }
 
 func newEpochCronjob(cronjobCfg *config.CronjobConfig, epochs staking.EpochInfo) epochCronjob {
@@ -79,6 +95,12 @@ func (c *epochCronjob) Timeout() time.Duration {
 
 func (c *epochCronjob) RandomTimeoutDelta() time.Duration {
 	return 0
+}
+
+func (c *epochCronjob) OnError(err error) {
+	if c.metrics != nil {
+		c.metrics.errorCount.Inc()
+	}
 }
 
 // Get processing range (closed interval)
@@ -104,4 +126,24 @@ func (c *epochCronjob) getTrimmedEpochRange(start, end int64) *epochRange {
 func (c *epochCronjob) indexerBehind(idxState *database.State, epoch int64) bool {
 	epochEnd := c.epochs.GetEndTime(epoch)
 	return epochEnd.After(idxState.Updated.Add(-c.delay)) || idxState.NextDBIndex <= idxState.LastChainIndex
+}
+
+func newEpochCronjobMetrics(namespace string) *epochCronjobMetrics {
+	return &epochCronjobMetrics{
+		lastEpoch: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Name:      "last_epoch",
+			Help:      "Last completed epoch",
+		}),
+		lastProcessedEpoch: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Name:      "last_processed_epoch",
+			Help:      "Last processed epoch",
+		}),
+		errorCount: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "error_count",
+			Help:      "Number of errors",
+		}),
+	}
 }
