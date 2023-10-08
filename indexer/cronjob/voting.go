@@ -113,7 +113,9 @@ func (c *votingCronjob) Call() error {
 	epochRange := c.getEpochRange(int64(state.NextDBIndex), now)
 
 	logger.Debug("Voting needed for epochs [%d, %d]", epochRange.start, epochRange.end)
-	c.metrics.lastEpoch.Set(float64(epochRange.end))
+	if c.metrics != nil {
+		c.metrics.lastEpoch.Set(float64(epochRange.end))
+	}
 
 	votedInBatch := false
 	for e := epochRange.start; e <= epochRange.end; e++ {
@@ -141,7 +143,9 @@ func (c *votingCronjob) Call() error {
 				if err := c.db.UpdateState(&state); err != nil {
 					return err
 				}
-				c.metrics.lastProcessedEpoch.Set(float64(e))
+				if c.metrics != nil {
+					c.metrics.lastProcessedEpoch.Set(float64(e))
+				}
 			}
 			logger.Debug("Voting not needed for epoch %d", e)
 		}

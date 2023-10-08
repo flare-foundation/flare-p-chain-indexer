@@ -6,12 +6,15 @@ import (
 	"flare-indexer/database"
 	"flare-indexer/indexer/config"
 	"flare-indexer/logger"
+	"flare-indexer/utils/chain"
+	"flare-indexer/utils/contracts/addresses"
 	"flare-indexer/utils/contracts/mirroring"
 	"flare-indexer/utils/contracts/voting"
 	"flare-indexer/utils/staking"
 	"math/big"
 	"time"
 
+	"github.com/ava-labs/avalanchego/utils/crypto"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -62,9 +65,11 @@ func (m mirrorDBGorm) GetPChainTx(txID string, address string) (*database.PChain
 }
 
 type mirrorContractsCChain struct {
-	mirroring *mirroring.Mirroring
-	txOpts    *bind.TransactOpts
-	voting    *voting.Voting
+	mirroring     *mirroring.Mirroring
+	addressBinder *addresses.Binder
+	txOpts        *bind.TransactOpts
+	voting        *voting.Voting
+	txVerifier    *chain.TxVerifier
 }
 
 func initMirrorJobContracts(cfg *config.Config) (mirrorContracts, error) {
@@ -91,6 +96,11 @@ func initMirrorJobContracts(cfg *config.Config) (mirrorContracts, error) {
 		return nil, err
 	}
 
+	addressBinderContract, err := newAddressBinderContract(eth, mirroringContract)
+	if err != nil {
+		return nil, err
+	}
+
 	privateKey, err := cfg.Chain.GetPrivateKey()
 	if err != nil {
 		return nil, err
@@ -102,10 +112,23 @@ func initMirrorJobContracts(cfg *config.Config) (mirrorContracts, error) {
 	}
 
 	return &mirrorContractsCChain{
-		mirroring: mirroringContract,
-		txOpts:    txOpts,
-		voting:    votingContract,
+		mirroring:     mirroringContract,
+		addressBinder: addressBinderContract,
+		txOpts:        txOpts,
+		voting:        votingContract,
+		txVerifier:    chain.NewTxVerifier(eth),
 	}, nil
+}
+
+func newAddressBinderContract(
+	eth *ethclient.Client, mirroringContract *mirroring.Mirroring,
+) (*addresses.Binder, error) {
+	addressBinderAddress, err := mirroringContract.AddressBinder(new(bind.CallOpts))
+	if err != nil {
+		return nil, err
+	}
+
+	return addresses.NewBinder(addressBinderAddress, eth)
 }
 
 func (m mirrorContractsCChain) GetMerkleRoot(epoch int64) ([32]byte, error) {
@@ -118,6 +141,30 @@ func (m mirrorContractsCChain) MirrorStake(
 ) error {
 	_, err := m.mirroring.MirrorStake(m.txOpts, *stakeData, merkleProof)
 	return err
+}
+
+func (m mirrorContractsCChain) IsAddressRegistered(address string) (bool, error) {
+	addressBytes, err := chain.ParseAddress(address)
+	if err != nil {
+		return false, err
+	}
+	boundAddress, err := m.addressBinder.PAddressToCAddress(new(bind.CallOpts), addressBytes)
+	if err != nil {
+		return false, err
+	}
+	return boundAddress != (common.Address{}), nil
+}
+
+func (m mirrorContractsCChain) RegisterPublicKey(publicKey crypto.PublicKey) error {
+	ethAddress, err := chain.PublicKeyToEthAddress(publicKey)
+	if err != nil {
+		return err
+	}
+	tx, err := m.addressBinder.RegisterAddresses(m.txOpts, publicKey.Bytes(), publicKey.Address(), ethAddress)
+	if err != nil {
+		return err
+	}
+	return m.txVerifier.WaitUntilMined(m.txOpts.From, tx, 10*time.Second)
 }
 
 func (m mirrorContractsCChain) EpochConfig() (start time.Time, period time.Duration, err error) {

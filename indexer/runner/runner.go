@@ -16,10 +16,6 @@ func Start(ctx context.IndexerContext) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	addressBinderCronjob, err := cronjob.NewAddressBinderCronjob(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
 	mirrorCronjob, err := cronjob.NewMirrorCronjob(ctx)
 	if err != nil {
 		log.Fatal(err)
@@ -35,7 +31,6 @@ func Start(ctx context.IndexerContext) {
 
 	go cronjob.RunCronjob(uptimeCronjob)
 	go cronjob.RunCronjob(votingCronjob)
-	go cronjob.RunCronjob(addressBinderCronjob)
 	go cronjob.RunCronjob(mirrorCronjob)
 	go cronjob.RunCronjob(uptimeVotingCronjob)
 }

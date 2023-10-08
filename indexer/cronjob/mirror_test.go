@@ -16,6 +16,7 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/crypto"
 	"github.com/bradleyjkemp/cupaloy"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -169,7 +170,7 @@ func TestMultipleTransactionsInSeparateEpochs(t *testing.T) {
 
 	db := testMirror(t, txsMap, contracts)
 
-	require.Equal(t, db.states[mirrorStateName].NextDBIndex, uint64(4))
+	require.Equal(t, db.states[mirrorStateName].NextDBIndex, uint64(3))
 }
 
 func TestAlreadyMirrored(t *testing.T) {
@@ -238,10 +239,6 @@ func testMirror(
 				LastChainIndex: 2,
 			},
 			mirrorStateName: {},
-			addressBinderStateName: {
-				Updated:     epochInfo.GetEndTime(999),
-				NextDBIndex: 4,
-			},
 		},
 		txs: txs,
 	}
@@ -253,6 +250,7 @@ func testMirror(
 			enabled: true,
 			epochs:  epochInfo,
 		},
+		registeredAddresses: mapset.NewSet[string](),
 	}
 
 	err := j.Call()
