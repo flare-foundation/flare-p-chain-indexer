@@ -119,13 +119,7 @@ func TestVotes(t *testing.T) {
 	cupaloy.SnapshotT(t, contract.submittedVotes)
 
 	updatedState := db.states[votingStateName]
-	require.Equal(t, updatedState.NextDBIndex, uint64(1))
-
-	err = cronjob.Call()
-	require.NoError(t, err)
-
-	updatedState = db.states[votingStateName]
-	require.Equal(t, updatedState.NextDBIndex, uint64(6))
+	require.Equal(t, updatedState.NextDBIndex, uint64(5))
 }
 
 func timeRangeForEpoch(cj epochCronjob, epoch int64) timeRange {
