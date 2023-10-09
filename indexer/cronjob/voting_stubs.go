@@ -3,6 +3,8 @@ package cronjob
 import (
 	"flare-indexer/database"
 	"flare-indexer/indexer/config"
+	"flare-indexer/logger"
+	"flare-indexer/utils/chain"
 	"flare-indexer/utils/contracts/voting"
 	"flare-indexer/utils/staking"
 	"math/big"
@@ -30,13 +32,20 @@ func (db *votingDBGorm) UpdateState(state *database.State) error {
 }
 
 type votingContractCChain struct {
-	callOpts *bind.CallOpts
-	txOpts   *bind.TransactOpts
-	voting   *voting.Voting
+	callOpts   *bind.CallOpts
+	txOpts     *bind.TransactOpts
+	voting     *voting.Voting
+	txVerifier *chain.TxVerifier
 }
 
 func newVotingContractCChain(cfg *config.Config) (votingContract, error) {
-	votingContract, err := newVotingContract(cfg)
+
+	eth, err := ethclient.Dial(cfg.Chain.EthRPCURL)
+	if err != nil {
+		return nil, err
+	}
+
+	votingContract, err := voting.NewVoting(cfg.ContractAddresses.Voting, eth)
 	if err != nil {
 		return nil, err
 	}
@@ -55,18 +64,11 @@ func newVotingContractCChain(cfg *config.Config) (votingContract, error) {
 	callOpts := &bind.CallOpts{From: txOpts.From}
 
 	return &votingContractCChain{
-		callOpts: callOpts,
-		txOpts:   txOpts,
-		voting:   votingContract,
+		callOpts:   callOpts,
+		txOpts:     txOpts,
+		voting:     votingContract,
+		txVerifier: chain.NewTxVerifier(eth),
 	}, nil
-}
-
-func newVotingContract(cfg *config.Config) (*voting.Voting, error) {
-	eth, err := ethclient.Dial(cfg.Chain.EthRPCURL)
-	if err != nil {
-		return nil, err
-	}
-	return voting.NewVoting(cfg.ContractAddresses.Voting, eth)
 }
 
 func (c *votingContractCChain) ShouldVote(epoch *big.Int) (bool, error) {
@@ -74,8 +76,16 @@ func (c *votingContractCChain) ShouldVote(epoch *big.Int) (bool, error) {
 }
 
 func (c *votingContractCChain) SubmitVote(epoch *big.Int, merkleRoot [32]byte) error {
-	_, err := c.voting.SubmitVote(c.txOpts, epoch, merkleRoot)
-	return err
+	tx, err := c.voting.SubmitVote(c.txOpts, epoch, merkleRoot)
+	if err != nil {
+		return err
+	}
+	err = c.txVerifier.WaitUntilMined(c.callOpts.From, tx, 60*time.Second)
+	if err != nil {
+		return err
+	}
+	logger.Debug("Mined voting tx %s", tx.Hash().Hex())
+	return nil
 }
 
 func (c *votingContractCChain) EpochConfig() (start time.Time, period time.Duration, err error) {
