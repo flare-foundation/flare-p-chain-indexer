@@ -19,6 +19,8 @@ FROM debian:latest AS execution
 ARG deployment=flare
 ARG type=voting
 
+RUN apt-get -y update && apt-get -y install curl
+
 WORKDIR /app
 COPY --from=builder /app/flare_indexer .
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
