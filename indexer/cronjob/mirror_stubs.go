@@ -160,24 +160,15 @@ func (m mirrorContractsCChain) RegisterPublicKey(publicKey crypto.PublicKey) err
 	if err != nil {
 		return err
 	}
-	logger.Debug("Registering address %s", ethAddress)
 	tx, err := m.addressBinder.RegisterAddresses(m.txOpts, publicKey.Bytes(), publicKey.Address(), ethAddress)
 	if err != nil {
 		return err
 	}
-	err = m.txVerifier.WaitUntilMined(m.txOpts.From, tx, 20*time.Second)
+	err = m.txVerifier.WaitUntilMined(m.txOpts.From, tx, 60*time.Second)
 	if err != nil {
 		return err
 	}
-	logger.Debug("Registering address %s mined (tx %s)", ethAddress, tx.Hash().Hex())
-	// Check
-	a := publicKey.Address()
-	ab, _ := chain.FormatAddressBytes(a[:])
-	check, err := m.IsAddressRegistered(ab)
-	if err != nil {
-		return err
-	}
-	logger.Debug("Address is registered: %v", check)
+	logger.Debug("Mined tx %s to register adddress %s", tx.Hash().Hex(), ethAddress)
 	return nil
 }
 
