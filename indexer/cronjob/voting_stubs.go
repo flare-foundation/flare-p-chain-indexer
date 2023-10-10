@@ -8,6 +8,7 @@ import (
 	"flare-indexer/utils/contracts/voting"
 	"flare-indexer/utils/staking"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -82,6 +83,10 @@ func (c *votingContractCChain) SubmitVote(epoch *big.Int, merkleRoot [32]byte) e
 	}
 	err = c.txVerifier.WaitUntilMined(c.callOpts.From, tx, 60*time.Second)
 	if err != nil {
+		if strings.Contains(err.Error(), "epoch already finalized") {
+			logger.Info("Epoch %s already finalized", epoch.String())
+			return nil
+		}
 		return err
 	}
 	logger.Debug("Mined voting tx %s", tx.Hash().Hex())
