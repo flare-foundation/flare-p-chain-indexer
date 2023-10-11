@@ -12,7 +12,6 @@ COPY . ./
 
 # Build the applications
 RUN go build -o /app/flare_indexer ./indexer/main/indexer.go
-# RUN go build -o /app/flare_services ./services/main/services.go
 
 FROM debian:latest AS execution
 
