@@ -4,6 +4,7 @@ import (
 	"flare-indexer/indexer/shared"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 type epochCronjobMetrics struct {
@@ -19,12 +20,12 @@ type epochCronjobMetrics struct {
 func newEpochCronjobMetrics(namespace string) *epochCronjobMetrics {
 	return &epochCronjobMetrics{
 		MetricsBase: *shared.NewMetricsBase(namespace),
-		lastEpoch: prometheus.NewGauge(prometheus.GaugeOpts{
+		lastEpoch: promauto.NewGauge(prometheus.GaugeOpts{
 			Namespace: namespace,
 			Name:      "last_epoch",
 			Help:      "Last completed epoch",
 		}),
-		lastProcessedEpoch: prometheus.NewGauge(prometheus.GaugeOpts{
+		lastProcessedEpoch: promauto.NewGauge(prometheus.GaugeOpts{
 			Namespace: namespace,
 			Name:      "last_processed_epoch",
 			Help:      "Last processed epoch",

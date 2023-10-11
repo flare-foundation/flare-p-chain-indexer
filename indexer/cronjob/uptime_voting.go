@@ -21,6 +21,10 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	uptimeVotingCronjobName = "uptime_voting_cronjob"
+)
+
 var (
 	errNoEpochsToAggregate = errors.New("no epochs to aggregate")
 )
@@ -81,6 +85,7 @@ func NewUptimeVotingCronjob(ctx context.IndexerContext) (*uptimeVotingCronjob, e
 			enabled: config.EnableVoting,
 			timeout: config.Timeout,
 			epochs:  staking.NewEpochInfo(&globalConfig.EpochConfig{First: config.First}, config.Start.Time, config.Period),
+			metrics: newEpochCronjobMetrics(uptimeVotingCronjobName),
 		},
 		lastAggregatedEpoch:            -1,
 		deleteOldUptimesEpochThreshold: config.DeleteOldUptimesEpochThreshold,
@@ -93,7 +98,7 @@ func NewUptimeVotingCronjob(ctx context.IndexerContext) (*uptimeVotingCronjob, e
 }
 
 func (c *uptimeVotingCronjob) Name() string {
-	return "uptime_aggregator"
+	return uptimeVotingCronjobName
 }
 
 func (c *uptimeVotingCronjob) Timeout() time.Duration {
