@@ -29,10 +29,17 @@ jobs:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    - name: Build and push default image
+    - name: Build and push indexer container
       uses: docker/build-push-action@v3.2.0
       with:
-        context: . # Because GH actions are for kids and put protection on everything; https://stackoverflow.com/a/71159809/11276254
+        context: .
         push: true
-        tags: |
-          ghcr.io/${{ github.repository }}:${{ env.IMAGE_TAG }}
+        file: dockerfile.indexer
+        tags: ghcr.io/${{ github.repository }}:${{ env.IMAGE_TAG }}
+    - name: Build and push services container
+      uses: docker/build-push-action@v3.2.0
+      with:
+        context: .
+        push: true
+        file: dockerfile.services
+        tags: ghcr.io/${{ github.repository }}/services:${{ env.IMAGE_TAG }}
