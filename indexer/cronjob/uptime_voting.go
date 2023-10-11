@@ -120,6 +120,7 @@ func (c *uptimeVotingCronjob) Call() error {
 
 	var aggregations []*database.UptimeAggregation
 	lastAggregatedEpoch := c.lastAggregatedEpoch
+	c.updateLastEpochMetrics(epochRange.end)
 
 	// Aggregate missing epochs for all nodes
 	for epoch := epochRange.start; epoch <= epochRange.end; epoch++ {
@@ -149,6 +150,7 @@ func (c *uptimeVotingCronjob) Call() error {
 		return fmt.Errorf("failed persisting uptime aggregations %w", err)
 	}
 	c.lastAggregatedEpoch = lastAggregatedEpoch
+	c.updateLastProcessedEpochMetrics(lastAggregatedEpoch)
 
 	err = c.deleteOldUptimes()
 	if err != nil {

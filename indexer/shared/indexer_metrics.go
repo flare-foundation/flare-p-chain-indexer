@@ -6,6 +6,8 @@ import (
 )
 
 type metrics struct {
+	MetricsBase
+
 	// Last accepted index on the chain
 	lastAcceptedIndex prometheus.Gauge
 
@@ -18,6 +20,7 @@ type metrics struct {
 
 func newMetrics(namespace string) *metrics {
 	return &metrics{
+		MetricsBase: *NewMetricsBase(namespace),
 		lastAcceptedIndex: promauto.NewGauge(prometheus.GaugeOpts{
 			Namespace: namespace,
 			Name:      "last_accepted_index",
@@ -36,8 +39,13 @@ func newMetrics(namespace string) *metrics {
 	}
 }
 
-func (m *metrics) Update(newAcceptedCount uint64, newProcessedCount uint64, processingTime int64) {
-	m.lastAcceptedIndex.Set(float64(newAcceptedCount))
-	m.lastProcessedIndex.Set(float64(newProcessedCount))
+func (m *metrics) Update(lastAcceptedIndex uint64, lastProcessedIndex uint64, processingTime int64) {
+	m.lastAcceptedIndex.Set(float64(lastAcceptedIndex))
+	m.lastProcessedIndex.Set(float64(lastProcessedIndex))
 	m.processingTime.Set(float64(processingTime))
+	if lastAcceptedIndex > lastProcessedIndex {
+		m.SetStatus(HealthStatusSyncing)
+	} else {
+		m.SetStatus(HealthStatusOk)
+	}
 }

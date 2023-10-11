@@ -75,12 +75,17 @@ func NewMirrorCronjob(ctx indexerctx.IndexerContext) (Cronjob, error) {
 	}
 
 	err = mc.reset(ctx.Flags().ResetMirrorCronjob)
+	if err != nil {
+		return nil, err
+	}
+
+	mc.metrics = newEpochCronjobMetrics(mirrorStateName)
 
 	return mc, err
 }
 
 func (c *mirrorCronJob) Name() string {
-	return "mirror"
+	return mirrorStateName
 }
 
 func (c *mirrorCronJob) OnStart() error {
@@ -99,6 +104,7 @@ func (c *mirrorCronJob) Call() error {
 	}
 
 	logger.Debug("mirroring epochs %d-%d", epochRange.start, epochRange.end)
+	c.updateLastEpochMetrics(epochRange.end)
 
 	for epoch := epochRange.start; epoch <= epochRange.end; epoch++ {
 		logger.Debug("mirroring epoch %d", epoch)
@@ -112,6 +118,7 @@ func (c *mirrorCronJob) Call() error {
 	if err := c.db.UpdateJobState(epochRange.end+1, false); err != nil {
 		return err
 	}
+	c.updateLastProcessedEpochMetrics(epochRange.end)
 
 	return nil
 }

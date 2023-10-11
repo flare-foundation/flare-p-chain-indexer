@@ -33,8 +33,7 @@ type votingCronjob struct {
 	contract votingContract
 
 	// For testing to set "now" to some past date
-	time    utils.ShiftedTime
-	metrics *epochCronjobMetrics
+	time utils.ShiftedTime
 }
 
 type votingDB interface {
@@ -85,7 +84,7 @@ func NewVotingCronjob(ctx indexerctx.IndexerContext) (*votingCronjob, error) {
 }
 
 func (c *votingCronjob) Name() string {
-	return "voting"
+	return votingStateName
 }
 
 func (c *votingCronjob) OnStart() error {
@@ -113,9 +112,7 @@ func (c *votingCronjob) Call() error {
 	epochRange := c.getEpochRange(int64(state.NextDBIndex), now)
 
 	logger.Debug("Voting needed for epochs [%d, %d]", epochRange.start, epochRange.end)
-	if c.metrics != nil {
-		c.metrics.lastEpoch.Set(float64(epochRange.end))
-	}
+	c.updateLastEpochMetrics(epochRange.end)
 
 	for e := epochRange.start; e <= epochRange.end; e++ {
 		start, end := c.epochs.GetTimeRange(e)
@@ -137,9 +134,7 @@ func (c *votingCronjob) Call() error {
 		if err := c.db.UpdateState(&state); err != nil {
 			return err
 		}
-		if c.metrics != nil {
-			c.metrics.lastProcessedEpoch.Set(float64(e))
-		}
+		c.updateLastProcessedEpochMetrics(e)
 	}
 	return nil
 }

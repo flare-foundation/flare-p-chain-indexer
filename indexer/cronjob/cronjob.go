@@ -3,12 +3,11 @@ package cronjob
 import (
 	"flare-indexer/database"
 	"flare-indexer/indexer/config"
+	"flare-indexer/indexer/shared"
 	"flare-indexer/logger"
 	"flare-indexer/utils"
 	"flare-indexer/utils/staking"
 	"time"
-
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 type Cronjob interface {
@@ -18,12 +17,16 @@ type Cronjob interface {
 	RandomTimeoutDelta() time.Duration
 	Call() error
 	OnStart() error
-	OnError(err error)
+
+	// Set health status of cronjob
+	// (can be implemented to ignore the status based on other conditions)
+	UpdateCronjobStatus(status shared.HealthStatus)
 }
 
 func RunCronjob(c Cronjob) {
 	if !c.Enabled() {
 		logger.Debug("%s cronjob disabled", c.Name())
+		c.UpdateCronjobStatus(shared.HealthStatusOk)
 		return
 	}
 
@@ -38,10 +41,13 @@ func RunCronjob(c Cronjob) {
 	ticker := utils.NewRandomizedTicker(c.Timeout(), c.RandomTimeoutDelta())
 	for {
 		<-ticker
+
 		err := c.Call()
-		if err != nil {
+		if err == nil {
+			c.UpdateCronjobStatus(shared.HealthStatusOk)
+		} else {
 			logger.Error("%s cronjob error %s", c.Name(), err.Error())
-			c.OnError(err)
+			c.UpdateCronjobStatus(shared.HealthStatusError)
 		}
 	}
 }
@@ -62,17 +68,6 @@ type epochCronjob struct {
 type epochRange struct {
 	start int64
 	end   int64
-}
-
-type epochCronjobMetrics struct {
-	// Current epoch
-	lastEpoch prometheus.Gauge
-
-	// Last processsed epoch
-	lastProcessedEpoch prometheus.Gauge
-
-	// Error count
-	errorCount prometheus.Counter
 }
 
 func newEpochCronjob(cronjobCfg *config.CronjobConfig, epochs staking.EpochInfo) epochCronjob {
@@ -97,9 +92,9 @@ func (c *epochCronjob) RandomTimeoutDelta() time.Duration {
 	return 0
 }
 
-func (c *epochCronjob) OnError(err error) {
+func (c *epochCronjob) UpdateCronjobStatus(status shared.HealthStatus) {
 	if c.metrics != nil {
-		c.metrics.errorCount.Inc()
+		c.metrics.SetStatus(status)
 	}
 }
 
@@ -128,22 +123,14 @@ func (c *epochCronjob) indexerBehind(idxState *database.State, epoch int64) bool
 	return epochEnd.After(idxState.Updated.Add(-c.delay)) || idxState.NextDBIndex <= idxState.LastChainIndex
 }
 
-func newEpochCronjobMetrics(namespace string) *epochCronjobMetrics {
-	return &epochCronjobMetrics{
-		lastEpoch: prometheus.NewGauge(prometheus.GaugeOpts{
-			Namespace: namespace,
-			Name:      "last_epoch",
-			Help:      "Last completed epoch",
-		}),
-		lastProcessedEpoch: prometheus.NewGauge(prometheus.GaugeOpts{
-			Namespace: namespace,
-			Name:      "last_processed_epoch",
-			Help:      "Last processed epoch",
-		}),
-		errorCount: prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: namespace,
-			Name:      "error_count",
-			Help:      "Number of errors",
-		}),
+func (c *epochCronjob) updateLastEpochMetrics(epoch int64) {
+	if c.metrics != nil {
+		c.metrics.lastEpoch.Set(float64(epoch))
+	}
+}
+
+func (c *epochCronjob) updateLastProcessedEpochMetrics(epoch int64) {
+	if c.metrics != nil {
+		c.metrics.lastProcessedEpoch.Set(float64(epoch))
 	}
 }

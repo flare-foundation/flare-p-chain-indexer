@@ -4,6 +4,7 @@ import (
 	"flare-indexer/database"
 	"flare-indexer/indexer/config"
 	"flare-indexer/indexer/context"
+	"flare-indexer/indexer/shared"
 	"flare-indexer/utils"
 	"flare-indexer/utils/chain"
 	"time"
@@ -11,24 +12,28 @@ import (
 	"gorm.io/gorm"
 )
 
+const uptimeCronjobName = "uptime_cronjob"
+
 type uptimeCronjob struct {
 	config config.UptimeConfig
 	db     *gorm.DB
 
-	client chain.UptimeClient
+	client  chain.UptimeClient
+	metrics *shared.MetricsBase
 }
 
 func NewUptimeCronjob(ctx context.IndexerContext) Cronjob {
 	endpoint := utils.JoinPaths(ctx.Config().Chain.NodeURL, "ext/bc/P"+chain.RPCClientOptions(ctx.Config().Chain.ApiKey))
 	return &uptimeCronjob{
-		config: ctx.Config().UptimeCronjob,
-		db:     ctx.DB(),
-		client: chain.NewAvalancheUptimeClient(endpoint),
+		config:  ctx.Config().UptimeCronjob,
+		db:      ctx.DB(),
+		client:  chain.NewAvalancheUptimeClient(endpoint),
+		metrics: shared.NewMetricsBase(uptimeCronjobName),
 	}
 }
 
 func (c *uptimeCronjob) Name() string {
-	return "uptime"
+	return uptimeCronjobName
 }
 
 func (c *uptimeCronjob) Timeout() time.Duration {
@@ -43,7 +48,13 @@ func (c *uptimeCronjob) RandomTimeoutDelta() time.Duration {
 	return 0
 }
 
-func (c *uptimeCronjob) OnError(err error) {
+func (c *uptimeCronjob) UpdateCronjobStatus(status shared.HealthStatus) {
+	if c.metrics != nil {
+		c.metrics.SetStatus(status)
+	}
+}
+
+func (c *uptimeCronjob) SetHealthStatus(status shared.HealthStatus) {
 }
 
 func (c *uptimeCronjob) OnStart() error {
