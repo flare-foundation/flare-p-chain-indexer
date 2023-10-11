@@ -35,7 +35,7 @@ jobs:
         context: .
         push: true
         file: dockerfile.indexer
-        tags: ghcr.io/${{ github.repository }}:${{ env.IMAGE_TAG }}
+        tags: ghcr.io/${{ github.repository }}/indexer:${{ env.IMAGE_TAG }}
     - name: Build and push services container
       uses: docker/build-push-action@v3.2.0
       with:
