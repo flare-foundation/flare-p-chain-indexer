@@ -1,0 +1,26 @@
+[db]
+host = "localhost"   # env DB_HOST
+port = 3306          # env DB_PORT
+database = ""        # env DB_DATABASE
+username = ""        # env DB_USERNAME  Should have only read access!
+password = ""        # env DB_PASSWORD
+log_queries = false
+
+[logger]
+level = "DEBUG"
+file = "./logs/flare-indexer.log"
+console = false
+
+[services]
+address = "0.0.0.0:8000"  # address to listen on
+
+[chain]
+address_hrp = "costwo"
+chain_id = 114
+# node rpc url, e.g.,
+# http://xxx.xx.xxx.xxx:xxxx/ext/C/rpc; env ETH_RPC_URL;
+eth_rpc_url = "node rpc address"
+api_key = ""  # from env API_KEY (if neede to access the node rpc)
+
+[contract_addresses]
+voting = "0x694905ca5f9F6c49f4748E8193B3e8053FA9E7E4"  # env VOTING_CONTRACT_ADDRESS

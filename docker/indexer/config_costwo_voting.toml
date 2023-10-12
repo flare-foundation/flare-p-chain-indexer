@@ -49,6 +49,7 @@ enabled = true
 timeout = "10s"
 first = 183585  # from env EPOCH_FIRST
 delay = "10s"
+gas_limit = 120000
 
 [contract_addresses]
 voting = "0x694905ca5f9F6c49f4748E8193B3e8053FA9E7E4"  # from env VOTING_CONTRACT_ADDRESS
