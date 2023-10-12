@@ -16,13 +16,12 @@ RUN go build -o /app/flare_services ./services/main/services.go
 FROM debian:latest AS execution
 
 ARG deployment=flare
-ARG type=voting
 
 RUN apt-get -y update && apt-get -y install curl
 
 WORKDIR /app
 COPY --from=builder /app/flare_services .
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY ./docker/indexer/config_${deployment}_${type}.toml ./config.toml
+COPY ./docker/indexer/config_${deployment}_services.toml ./config.toml
 
 CMD ["./flare_services", "--config", "/app/config.toml" ]
