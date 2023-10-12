@@ -54,9 +54,6 @@ func (c *uptimeCronjob) UpdateCronjobStatus(status shared.HealthStatus) {
 	}
 }
 
-func (c *uptimeCronjob) SetHealthStatus(status shared.HealthStatus) {
-}
-
 func (c *uptimeCronjob) OnStart() error {
 	entities := []*database.UptimeCronjob{&database.UptimeCronjob{
 		NodeID:    nil,
