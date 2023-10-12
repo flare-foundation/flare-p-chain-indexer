@@ -12,12 +12,13 @@ COPY . ./
 
 # Build the applications
 RUN go build -o /app/flare_indexer ./indexer/main/indexer.go
-# RUN go build -o /app/flare_services ./services/main/services.go
 
 FROM debian:latest AS execution
 
 ARG deployment=flare
 ARG type=voting
+
+RUN apt-get -y update && apt-get -y install curl
 
 WORKDIR /app
 COPY --from=builder /app/flare_indexer .
