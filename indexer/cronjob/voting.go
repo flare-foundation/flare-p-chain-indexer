@@ -33,8 +33,7 @@ type votingCronjob struct {
 	contract votingContract
 
 	// For testing to set "now" to some past date
-	time    utils.ShiftedTime
-	metrics *epochCronjobMetrics
+	time utils.ShiftedTime
 }
 
 type votingDB interface {
@@ -85,7 +84,7 @@ func NewVotingCronjob(ctx indexerctx.IndexerContext) (*votingCronjob, error) {
 }
 
 func (c *votingCronjob) Name() string {
-	return "voting"
+	return votingStateName
 }
 
 func (c *votingCronjob) OnStart() error {
@@ -113,9 +112,8 @@ func (c *votingCronjob) Call() error {
 	epochRange := c.getEpochRange(int64(state.NextDBIndex), now)
 
 	logger.Debug("Voting needed for epochs [%d, %d]", epochRange.start, epochRange.end)
-	c.metrics.lastEpoch.Set(float64(epochRange.end))
+	c.updateLastEpochMetrics(epochRange.end)
 
-	votedInBatch := false
 	for e := epochRange.start; e <= epochRange.end; e++ {
 		start, end := c.epochs.GetTimeRange(e)
 
@@ -128,37 +126,30 @@ func (c *votingCronjob) Call() error {
 		if err != nil {
 			return err
 		}
-		voted, err := c.submitVotes(e, votingData)
+		err = c.submitVotes(e, votingData)
 		if err != nil {
 			return err
 		}
-		if voted {
-			votedInBatch = true
-			logger.Info("Submitted vote for epoch %d", e)
-		} else {
-			if !votedInBatch {
-				state.NextDBIndex = uint64(e + 1)
-				if err := c.db.UpdateState(&state); err != nil {
-					return err
-				}
-				c.metrics.lastProcessedEpoch.Set(float64(e))
-			}
-			logger.Debug("Voting not needed for epoch %d", e)
+		state.NextDBIndex = uint64(e + 1)
+		if err := c.db.UpdateState(&state); err != nil {
+			return err
 		}
+		c.updateLastProcessedEpochMetrics(e)
 	}
 	return nil
 }
 
 // Return true if the vote was submitted, and false if shouldVote returned false
-func (c *votingCronjob) submitVotes(e int64, votingData []database.PChainTxData) (bool, error) {
+func (c *votingCronjob) submitVotes(e int64, votingData []database.PChainTxData) error {
 	votingData = staking.DedupeTxs(votingData)
 
 	shouldVote, err := c.contract.ShouldVote(big.NewInt(e))
 	if err != nil {
-		return false, err
+		return err
 	}
 	if !shouldVote {
-		return false, nil
+		logger.Debug("Voting not needed for epoch %d", e)
+		return nil
 	}
 
 	var merkleRoot common.Hash
@@ -167,11 +158,17 @@ func (c *votingCronjob) submitVotes(e int64, votingData []database.PChainTxData)
 	} else {
 		merkleRoot, err = staking.GetMerkleRoot(votingData)
 		if err != nil {
-			return false, err
+			return err
 		}
 	}
+
+	// Submit vote and wait for the transaction to be mined
 	err = c.contract.SubmitVote(big.NewInt(e), [32]byte(merkleRoot))
-	return true, err
+	if err != nil {
+		return err
+	}
+	logger.Info("Submitted vote for epoch %d", e)
+	return nil
 }
 
 func (c *votingCronjob) reset(firstEpoch int64) error {

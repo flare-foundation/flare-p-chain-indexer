@@ -16,8 +16,13 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
+)
+
+const (
+	uptimeVotingCronjobName = "uptime_voting_cronjob"
 )
 
 var (
@@ -54,7 +59,12 @@ func NewUptimeVotingCronjob(ctx context.IndexerContext) (*uptimeVotingCronjob, e
 		return &uptimeVotingCronjob{}, nil
 	}
 
-	votingContract, err := newVotingContract(cfg)
+	eth, err := ethclient.Dial(cfg.Chain.EthRPCURL)
+	if err != nil {
+		return nil, err
+	}
+
+	votingContract, err := voting.NewVoting(cfg.ContractAddresses.Voting, eth)
 	if err != nil {
 		return nil, err
 	}
@@ -75,6 +85,7 @@ func NewUptimeVotingCronjob(ctx context.IndexerContext) (*uptimeVotingCronjob, e
 			enabled: config.EnableVoting,
 			timeout: config.Timeout,
 			epochs:  staking.NewEpochInfo(&globalConfig.EpochConfig{First: config.First}, config.Start.Time, config.Period),
+			metrics: newEpochCronjobMetrics(uptimeVotingCronjobName),
 		},
 		lastAggregatedEpoch:            -1,
 		deleteOldUptimesEpochThreshold: config.DeleteOldUptimesEpochThreshold,
@@ -87,7 +98,7 @@ func NewUptimeVotingCronjob(ctx context.IndexerContext) (*uptimeVotingCronjob, e
 }
 
 func (c *uptimeVotingCronjob) Name() string {
-	return "uptime_aggregator"
+	return uptimeVotingCronjobName
 }
 
 func (c *uptimeVotingCronjob) Timeout() time.Duration {
@@ -114,6 +125,7 @@ func (c *uptimeVotingCronjob) Call() error {
 
 	var aggregations []*database.UptimeAggregation
 	lastAggregatedEpoch := c.lastAggregatedEpoch
+	c.updateLastEpochMetrics(epochRange.end)
 
 	// Aggregate missing epochs for all nodes
 	for epoch := epochRange.start; epoch <= epochRange.end; epoch++ {
@@ -143,6 +155,7 @@ func (c *uptimeVotingCronjob) Call() error {
 		return fmt.Errorf("failed persisting uptime aggregations %w", err)
 	}
 	c.lastAggregatedEpoch = lastAggregatedEpoch
+	c.updateLastProcessedEpochMetrics(lastAggregatedEpoch)
 
 	err = c.deleteOldUptimes()
 	if err != nil {

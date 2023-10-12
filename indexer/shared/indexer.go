@@ -56,14 +56,17 @@ func (ci *ChainIndexerBase) IndexBatch() error {
 		// Nothing to do; no new containers
 		logger.Debug("Nothing to do. Last index %d < next to process %d", lastIndex, nextIndex)
 
-		duration := time.Since(startTime).Milliseconds()
-		if ci.metrics != nil {
-			ci.metrics.Update(currentState.LastChainIndex, currentState.NextDBIndex-1, duration)
-		}
-
 		// Update time of last run (for other clients to know that the indexer is running)
 		currentState.UpdateTime()
-		return database.UpdateState(ci.DB, &currentState)
+		if err := database.UpdateState(ci.DB, &currentState); err != nil {
+			return err
+		}
+
+		if ci.metrics != nil {
+			duration := time.Since(startTime).Milliseconds()
+			ci.metrics.Update(currentState.LastChainIndex, currentState.NextDBIndex-1, duration)
+		}
+		return nil
 	}
 
 	// Get MaxBatch containers from the chain
@@ -122,6 +125,8 @@ func (ci *ChainIndexerBase) ProcessContainers(nextIndex uint64, containers []ind
 
 func (ci *ChainIndexerBase) Run() {
 	if !ci.Config.Enabled {
+		logger.Debug("%s indexer is disabled", ci.IndexerName)
+		ci.SetStatus(HealthStatusOk)
 		return
 	}
 	ticker := time.NewTicker(ci.Config.Timeout)
@@ -129,10 +134,17 @@ func (ci *ChainIndexerBase) Run() {
 		err := ci.IndexBatch()
 		if err != nil {
 			logger.Error("%s indexer error %v", ci.IndexerName, err)
+			ci.SetStatus(HealthStatusError)
 		}
 	}
 }
 
 func (ci *ChainIndexerBase) InitMetrics(namespace string) {
 	ci.metrics = newMetrics(namespace)
+}
+
+func (ci *ChainIndexerBase) SetStatus(status HealthStatus) {
+	if ci.metrics != nil {
+		ci.metrics.SetStatus(status)
+	}
 }
