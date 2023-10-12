@@ -50,6 +50,7 @@ enabled = true
 timeout = "10s"
 first = 211500
 delay = "10s"
+gas_limit = 120000
 
 [contract_addresses]
 voting = "0x12b3079D5b65a17EFD1665d9731FB0Adb46F14e4"  # env VOTING_CONTRACT_ADDRESS
