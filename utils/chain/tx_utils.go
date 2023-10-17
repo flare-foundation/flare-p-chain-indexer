@@ -15,6 +15,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	// default timeout for waiting for a tx to be mined.
+	DefaultTxTimeout = 60 * time.Second
+)
+
 type TxVerifier struct {
 	eth *ethclient.Client
 }

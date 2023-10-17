@@ -81,7 +81,7 @@ func (c *votingContractCChain) SubmitVote(epoch *big.Int, merkleRoot [32]byte) e
 	if err != nil {
 		return err
 	}
-	err = c.txVerifier.WaitUntilMined(c.callOpts.From, tx, 60*time.Second)
+	err = c.txVerifier.WaitUntilMined(c.callOpts.From, tx, chain.DefaultTxTimeout)
 	if err != nil {
 		if strings.Contains(err.Error(), "epoch already finalized") {
 			logger.Info("Epoch %s already finalized", epoch.String())

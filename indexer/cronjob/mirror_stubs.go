@@ -139,8 +139,16 @@ func (m mirrorContractsCChain) MirrorStake(
 	stakeData *mirroring.IPChainStakeMirrorVerifierPChainStake,
 	merkleProof [][32]byte,
 ) error {
-	_, err := m.mirroring.MirrorStake(m.txOpts, *stakeData, merkleProof)
-	return err
+	tx, err := m.mirroring.MirrorStake(m.txOpts, *stakeData, merkleProof)
+	if err != nil {
+		return err
+	}
+	err = m.txVerifier.WaitUntilMined(m.txOpts.From, tx, chain.DefaultTxTimeout)
+	if err != nil {
+		return err
+	}
+	logger.Debug("Mined mirror tx %s", tx.Hash().Hex())
+	return nil
 }
 
 func (m mirrorContractsCChain) IsAddressRegistered(address string) (bool, error) {
@@ -164,7 +172,7 @@ func (m mirrorContractsCChain) RegisterPublicKey(publicKey crypto.PublicKey) err
 	if err != nil {
 		return err
 	}
-	err = m.txVerifier.WaitUntilMined(m.txOpts.From, tx, 60*time.Second)
+	err = m.txVerifier.WaitUntilMined(m.txOpts.From, tx, chain.DefaultTxTimeout)
 	if err != nil {
 		return err
 	}
