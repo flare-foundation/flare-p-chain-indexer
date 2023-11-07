@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 )
 
 func main() {
@@ -25,18 +26,22 @@ func main() {
 	routes.AddTransferRoutes(router, ctx)
 	routes.AddStakerRoutes(router, ctx)
 	routes.AddTransactionRoutes(router, ctx)
+
 	// Disabled -- state connector routes are currently not used
 	// routes.AddQueryRoutes(router, ctx)
 
 	if err := routes.AddMirroringRoutes(router, ctx); err != nil {
 		logger.Fatal("Failed to add mirroring routes: %v", err)
 	}
-
 	router.Finalize()
 
+	cors := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+	})
+	corsMuxRouter := cors.Handler(muxRouter)
 	address := ctx.Config().Services.Address
 	srv := &http.Server{
-		Handler: muxRouter,
+		Handler: corsMuxRouter,
 		Addr:    address,
 		// Good practice: enforce timeouts for servers you create -- config?
 		// WriteTimeout: 15 * time.Second,
