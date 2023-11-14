@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"gorm.io/gorm"
 )
 
@@ -40,8 +39,7 @@ type votingContractCChain struct {
 }
 
 func newVotingContractCChain(cfg *config.Config) (votingContract, error) {
-
-	eth, err := ethclient.Dial(cfg.Chain.EthRPCURL)
+	eth, err := cfg.Chain.DialETH()
 	if err != nil {
 		return nil, err
 	}

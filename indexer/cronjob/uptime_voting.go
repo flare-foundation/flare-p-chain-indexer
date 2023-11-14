@@ -16,7 +16,6 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -59,7 +58,7 @@ func NewUptimeVotingCronjob(ctx context.IndexerContext) (*uptimeVotingCronjob, e
 		return &uptimeVotingCronjob{}, nil
 	}
 
-	eth, err := ethclient.Dial(cfg.Chain.EthRPCURL)
+	eth, err := cfg.Chain.DialETH()
 	if err != nil {
 		return nil, err
 	}

@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"gorm.io/gorm"
 )
 
@@ -66,7 +65,7 @@ func newMirroringRouteHandlers(ctx context.ServicesContext) (*mirroringRouteHand
 }
 
 func getEpochStartAndPeriod(cfg *config.Config) (time.Time, time.Duration, error) {
-	eth, err := ethclient.Dial(cfg.Chain.EthRPCURL)
+	eth, err := cfg.Chain.DialETH()
 	if err != nil {
 		return time.Time{}, 0, err
 	}
