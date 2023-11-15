@@ -81,7 +81,7 @@ func initMirrorJobContracts(cfg *config.Config) (mirrorContracts, error) {
 		return nil, errors.New("voting contract address not set")
 	}
 
-	eth, err := ethclient.Dial(cfg.Chain.EthRPCURL)
+	eth, err := cfg.Chain.DialETH()
 	if err != nil {
 		return nil, err
 	}

@@ -41,7 +41,7 @@ func BuildContext() (ServicesContext, error) {
 		return nil, err
 	}
 
-	ethRPCClient, err := ethclient.Dial(cfg.Chain.EthRPCURL)
+	ethRPCClient, err := cfg.Chain.DialETH()
 	if err != nil {
 		return nil, err
 	}

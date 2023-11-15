@@ -3,11 +3,13 @@ package config
 import (
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"strings"
 
 	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/kelseyhightower/envconfig"
 )
 
@@ -65,6 +67,35 @@ func (cfg ChainConfig) GetPrivateKey() (string, error) {
 		}
 		return strings.TrimSpace(string(content)), nil
 	}
+}
+
+// Dial the chain node and return an ethclient.Client.
+func (chain *ChainConfig) DialETH() (*ethclient.Client, error) {
+	rpcURL, err := chain.getRPCURL()
+	if err != nil {
+		return nil, err
+	}
+
+	return ethclient.Dial(rpcURL)
+}
+
+// Get the full RPC URL which may be passed to ethclient.Dial. Includes API key
+// as query param if it is configured.
+func (chain *ChainConfig) getRPCURL() (string, error) {
+	u, err := url.Parse(chain.EthRPCURL)
+	if err != nil {
+		return "", err
+	}
+
+	if chain.ApiKey == "" {
+		return u.String(), nil
+	}
+
+	q := u.Query()
+	q.Set("x-apikey", chain.ApiKey)
+	u.RawQuery = q.Encode()
+
+	return u.String(), nil
 }
 
 type EpochConfig struct {
