@@ -5,18 +5,22 @@ import (
 	"flare-indexer/services/api"
 	"flare-indexer/services/context"
 	"flare-indexer/services/utils"
+	"flare-indexer/utils/staking"
 	"net/http"
+	"strconv"
 
 	"gorm.io/gorm"
 )
 
 type transactionRouteHandlers struct {
-	db *gorm.DB
+	db     *gorm.DB
+	epochs staking.EpochInfo
 }
 
-func newTransactionRouteHandlers(ctx context.ServicesContext) *transactionRouteHandlers {
+func newTransactionRouteHandlers(ctx context.ServicesContext, epochs staking.EpochInfo) *transactionRouteHandlers {
 	return &transactionRouteHandlers{
-		db: ctx.DB(),
+		db:     ctx.DB(),
+		epochs: epochs,
 	}
 }
 
@@ -41,8 +45,37 @@ func (rh *transactionRouteHandlers) getTransaction() utils.RouteHandler {
 		&api.ApiPChainTx{})
 }
 
-func AddTransactionRoutes(router utils.Router, ctx context.ServicesContext) {
-	vr := newTransactionRouteHandlers(ctx)
+func (rh *transactionRouteHandlers) listTransactions() utils.RouteHandler {
+	handler := func(params map[string]string) ([]api.ApiPChainTxListItem, *utils.ErrorHandler) {
+		epoch, err := strconv.ParseInt(params["epoch"], 10, 64)
+		if err != nil {
+			return nil, utils.HttpErrorHandler(http.StatusBadRequest, "Invalid epoch")
+		}
+
+		startTimestamp, endTimestamp := rh.epochs.GetTimeRange(epoch)
+		txs, err := database.GetPChainTxsForEpoch(&database.GetPChainTxsForEpochInput{
+			DB:             rh.db,
+			StartTimestamp: startTimestamp,
+			EndTimestamp:   endTimestamp,
+		})
+		if err != nil {
+			return nil, utils.InternalServerErrorHandler(err)
+		}
+
+		return api.NewApiPChainTxList(txs), nil
+	}
+
+	return utils.NewParamRouteHandler(handler, http.MethodGet,
+		map[string]string{"epoch:[0-9]+": "Epoch"},
+		[]api.ApiPChainTxListItem{},
+	)
+}
+
+func AddTransactionRoutes(
+	router utils.Router, ctx context.ServicesContext, epochs staking.EpochInfo,
+) {
+	vr := newTransactionRouteHandlers(ctx, epochs)
 	subrouter := router.WithPrefix("/transactions", "Transactions")
 	subrouter.AddRoute("/get/{tx_id:[0-9a-zA-Z]+}", vr.getTransaction())
+	subrouter.AddRoute("/list/{epoch:[0-9]+}", vr.listTransactions())
 }
