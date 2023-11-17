@@ -2,13 +2,10 @@ package routes
 
 import (
 	"errors"
-	globalConfig "flare-indexer/config"
 	"flare-indexer/database"
-	"flare-indexer/services/config"
 	"flare-indexer/services/context"
 	"flare-indexer/services/utils"
 	"flare-indexer/utils/contracts/mirroring"
-	"flare-indexer/utils/contracts/voting"
 	"flare-indexer/utils/staking"
 	"fmt"
 	"net/http"
@@ -50,32 +47,11 @@ type mirroringRouteHandlers struct {
 	epochs staking.EpochInfo
 }
 
-func newMirroringRouteHandlers(ctx context.ServicesContext) (*mirroringRouteHandlers, error) {
-	cfg := ctx.Config()
-
-	start, period, err := getEpochStartAndPeriod(cfg)
-	if err != nil {
-		return nil, err
-	}
-
+func newMirroringRouteHandlers(ctx context.ServicesContext, epochs staking.EpochInfo) *mirroringRouteHandlers {
 	return &mirroringRouteHandlers{
 		db:     NewMirrorDBGorm(ctx.DB()),
-		epochs: staking.NewEpochInfo(&globalConfig.EpochConfig{}, start, period),
-	}, nil
-}
-
-func getEpochStartAndPeriod(cfg *config.Config) (time.Time, time.Duration, error) {
-	eth, err := cfg.Chain.DialETH()
-	if err != nil {
-		return time.Time{}, 0, err
+		epochs: epochs,
 	}
-
-	votingContract, err := voting.NewVoting(cfg.ContractAddresses.Voting, eth)
-	if err != nil {
-		return time.Time{}, 0, err
-	}
-
-	return staking.GetEpochConfig(votingContract)
 }
 
 func (rh *mirroringRouteHandlers) listMirroringTransactions() utils.RouteHandler {
@@ -101,16 +77,11 @@ func (rh *mirroringRouteHandlers) listMirroringTransactions() utils.RouteHandler
 		GetMirroringResponse{})
 }
 
-func AddMirroringRoutes(router utils.Router, ctx context.ServicesContext) error {
-	rh, err := newMirroringRouteHandlers(ctx)
-	if err != nil {
-		return err
-	}
+func AddMirroringRoutes(router utils.Router, ctx context.ServicesContext, epochs staking.EpochInfo) {
+	rh := newMirroringRouteHandlers(ctx, epochs)
 
 	mirroringSubrouter := router.WithPrefix("/mirroring", "Mirroring")
 	mirroringSubrouter.AddRoute("/tx_data/{tx_id:[0-9a-zA-Z]+}", rh.listMirroringTransactions())
-
-	return nil
 }
 
 func (rh *mirroringRouteHandlers) createMirroringData(tx *database.PChainTx) ([]MirroringResponse, error) {

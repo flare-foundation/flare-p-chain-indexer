@@ -21,18 +21,21 @@ func main() {
 		log.Fatal(err) // logger possibly not initialized here so use builtin log
 	}
 
+	epochs, err := utils.NewEpochInfo(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	muxRouter := mux.NewRouter()
 	router := utils.NewSwaggerRouter(muxRouter, "Flare P-Chain Indexer", "0.1.0")
 	routes.AddTransferRoutes(router, ctx)
 	routes.AddStakerRoutes(router, ctx)
-	routes.AddTransactionRoutes(router, ctx)
+	routes.AddTransactionRoutes(router, ctx, epochs)
+	routes.AddMirroringRoutes(router, ctx, epochs)
 
 	// Disabled -- state connector routes are currently not used
 	// routes.AddQueryRoutes(router, ctx)
 
-	if err := routes.AddMirroringRoutes(router, ctx); err != nil {
-		logger.Fatal("Failed to add mirroring routes: %v", err)
-	}
 	router.Finalize()
 
 	cors := cors.New(cors.Options{
