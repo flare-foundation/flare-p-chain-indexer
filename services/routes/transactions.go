@@ -12,6 +12,11 @@ import (
 	"gorm.io/gorm"
 )
 
+type GetTransactionsByAddressRequest struct {
+	PaginatedRequest
+	Address string `json:"address"`
+}
+
 type transactionRouteHandlers struct {
 	db     *gorm.DB
 	epochs staking.EpochInfo
@@ -45,7 +50,7 @@ func (rh *transactionRouteHandlers) getTransaction() utils.RouteHandler {
 		&api.ApiPChainTx{})
 }
 
-func (rh *transactionRouteHandlers) listTransactions() utils.RouteHandler {
+func (rh *transactionRouteHandlers) listTransactionsByEpoch() utils.RouteHandler {
 	handler := func(params map[string]string) ([]api.ApiPChainTxListItem, *utils.ErrorHandler) {
 		epoch, err := strconv.ParseInt(params["epoch"], 10, 64)
 		if err != nil {
@@ -71,11 +76,28 @@ func (rh *transactionRouteHandlers) listTransactions() utils.RouteHandler {
 	)
 }
 
+func (rh *transactionRouteHandlers) listTransactionsByAddress() utils.RouteHandler {
+	handler := func(pathParams map[string]string, query GetTransactionsByAddressRequest, body interface{}) ([]api.ApiPChainTxListItem, *utils.ErrorHandler) {
+		txs, err := database.FetchPChainTransactionsByInputAddress(rh.db, query.Address, query.Offset, query.Limit)
+		if err != nil {
+			return nil, utils.InternalServerErrorHandler(err)
+		}
+		return api.NewApiPChainTxList(txs), nil
+	}
+	return utils.NewGeneralRouteHandler(handler, http.MethodGet,
+		nil,
+		GetTransactionsByAddressRequest{},
+		nil,
+		[]api.ApiPChainTxListItem{},
+	)
+}
+
 func AddTransactionRoutes(
 	router utils.Router, ctx context.ServicesContext, epochs staking.EpochInfo,
 ) {
 	vr := newTransactionRouteHandlers(ctx, epochs)
 	subrouter := router.WithPrefix("/transactions", "Transactions")
 	subrouter.AddRoute("/get/{tx_id:[0-9a-zA-Z]+}", vr.getTransaction())
-	subrouter.AddRoute("/list/{epoch:[0-9]+}", vr.listTransactions())
+	subrouter.AddRoute("/list/{epoch:[0-9]+}", vr.listTransactionsByEpoch())
+	subrouter.AddRoute("/list", vr.listTransactionsByAddress())
 }

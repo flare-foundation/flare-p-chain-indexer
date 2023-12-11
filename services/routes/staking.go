@@ -52,7 +52,7 @@ func (rh *stakerRouteHandlers) listStakingTransactions(txType database.PChainTxT
 		}
 		return TxIDsResponse{TxIDs: txIDs}, nil
 	}
-	return utils.NewRouteHandler(handler, http.MethodPost, GetStakerTxRequest{}, TxIDsResponse{})
+	return utils.NewBodyRouteHandler(handler, http.MethodPost, GetStakerTxRequest{}, TxIDsResponse{})
 }
 
 func (rh *stakerRouteHandlers) listStakers(txType database.PChainTxType) utils.RouteHandler {
@@ -75,7 +75,7 @@ func (rh *stakerRouteHandlers) listStakers(txType database.PChainTxType) utils.R
 		}
 		return stakers, nil
 	}
-	return utils.NewRouteHandler(handler, http.MethodPost, GetStakerRequest{}, []GetStakerResponse{})
+	return utils.NewBodyRouteHandler(handler, http.MethodPost, GetStakerRequest{}, []GetStakerResponse{})
 }
 
 func AddStakerRoutes(router utils.Router, ctx context.ServicesContext) {

@@ -7,12 +7,13 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/schema"
 )
 
 // Decode body from the request into value.
 // Any error is written into the response and false is returned.
 // (It is enough to just return from the request handler on false value)
-func DecodeBody(w http.ResponseWriter, r *http.Request, value any) bool {
+func DecodeBody(w http.ResponseWriter, r *http.Request, value interface{}) bool {
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&value)
 	if err != nil {
@@ -24,6 +25,23 @@ func DecodeBody(w http.ResponseWriter, r *http.Request, value any) bool {
 	if err != nil {
 		WriteApiResponseError(w, api.ApiResStatusRequestBodyError,
 			"error validating request body", err.Error())
+		return false
+	}
+	return true
+}
+
+func DecodeQueryParams(w http.ResponseWriter, r *http.Request, value interface{}) bool {
+	decoder := schema.NewDecoder()
+	err := decoder.Decode(value, r.URL.Query())
+	if err != nil {
+		WriteApiResponseError(w, api.ApiResStatusInvalidRequest,
+			"error parsing query params", err.Error())
+		return false
+	}
+	err = validate.Struct(value)
+	if err != nil {
+		WriteApiResponseError(w, api.ApiResStatusRequestBodyError,
+			"error validating query params", err.Error())
 		return false
 	}
 	return true

@@ -120,61 +120,11 @@ func (r *swaggerRouter) Finalize() {
 // Request passed to handler is the request body parsed to a struct of type R. The response of handler is wrapped to
 // an ApiResponseWrapper object and returned as json
 // Openapi definitions are generated from the request and response objects
-func NewRouteHandler[R interface{}, T interface{}](handler func(request R) (T, *ErrorHandler), method string, requestObject R, respObject T) RouteHandler {
-	wrappedRespObject := api.ApiResponseWrapper[T]{Data: respObject}
-	return wrappedRouteHandler(handler, func(w http.ResponseWriter, resp T) {
-		WriteApiResponseOk(w, resp)
-	}, method, requestObject, wrappedRespObject)
-}
-
-// Route handler factory
-// Request passed to handler is the request body parsed to a struct of type R.
-// The response of handler is an object of type T
-// Openapi definitions are generated from the request and response objects
-func NewClassicRouteHandler[R interface{}, T interface{}](handler func(request R) (T, *ErrorHandler), method string, requestObject R, respObject T) RouteHandler {
-	return wrappedRouteHandler(handler, func(w http.ResponseWriter, resp T) {
-		WriteResponse(w, resp)
-	}, method, requestObject, respObject)
-}
-
-func wrappedRouteHandler[R interface{}, T interface{}, S interface{}](
-	handler func(R) (T, *ErrorHandler),
-	responseWriter func(http.ResponseWriter, T),
-	method string,
-	requestObject R,
-	respObject S,
-) RouteHandler {
-	routeHandler := func(w http.ResponseWriter, r *http.Request) {
-		var request R
-		if !DecodeBody(w, r, &request) {
-			return
-		}
-		resp, err := handler(request)
-		if err != nil {
-			err.Handler(w)
-			return
-		}
-		responseWriter(w, resp)
+func NewBodyRouteHandler[B interface{}, R interface{}](handler func(request B) (R, *ErrorHandler), method string, requestObject B, respObject R) RouteHandler {
+	generalHandler := func(pathParams map[string]string, query interface{}, request B) (R, *ErrorHandler) {
+		return handler(request)
 	}
-	swaggerDefinitions := swagger.Definitions{
-		RequestBody: &swagger.ContentValue{
-			Content: swagger.Content{
-				"application/json": {Value: requestObject},
-			},
-		},
-		Responses: map[int]swagger.ContentValue{
-			200: {
-				Content: swagger.Content{
-					"application/json": {Value: respObject},
-				},
-			},
-		},
-	}
-	return RouteHandler{
-		Handler:            routeHandler,
-		SwaggerDefinitions: swaggerDefinitions,
-		Method:             method,
-	}
+	return NewGeneralRouteHandler(generalHandler, http.MethodPost, nil, nil, requestObject, respObject)
 }
 
 // Route handler factory
@@ -187,29 +137,56 @@ func NewParamRouteHandler[T interface{}](
 	paramDescriptions map[string]string,
 	respObject T,
 ) RouteHandler {
+	generalHandler := func(pathParams map[string]string, query interface{}, request interface{}) (T, *ErrorHandler) {
+		return handler(pathParams)
+	}
+	return NewGeneralRouteHandler(generalHandler, method, paramDescriptions, nil, nil, respObject)
+}
+
+// Route handler factory
+// The value passed to handler are the path parameters parsed to a map of string, the query parameters parsed to a struct
+// of type Q and the request body parsed to a struct of type B. The response of handler is wrapped to an
+// ApiResponseWrapper object and returned as json. Openapi definitions for the path parameters are generated from the
+// paramDescriptions map, definitions for the query parameters are generated from the queryObject and definitions for the
+// request body are generated from the bodyObject.
+func NewGeneralRouteHandler[Q interface{}, B interface{}, R interface{}](
+	handler func(map[string]string, Q, B) (R, *ErrorHandler),
+	method string,
+	paramDescriptions map[string]string, // Path params descriptions for openapi
+	queryObject Q,
+	bodyObject B,
+	respObject R,
+) RouteHandler {
 	routeHandler := func(w http.ResponseWriter, r *http.Request) {
+		var body B
+		if !IsNil(bodyObject) && !DecodeBody(w, r, &body) {
+			return
+		}
+		var query Q
+		if !IsNil(queryObject) && !DecodeQueryParams(w, r, &query) {
+			return
+		}
 		params := mux.Vars(r)
-		resp, err := handler(params)
+
+		resp, err := handler(params, query, body)
 		if err != nil {
 			err.Handler(w)
 			return
 		}
 		WriteApiResponseOk(w, resp)
 	}
-	pathParams := make(map[string]swagger.Parameter)
-	for name, description := range paramDescriptions {
-		pathParams[name] = swagger.Parameter{
-			Schema:      &swagger.Schema{Value: ""},
-			Description: description,
-		}
-	}
-	wrappedRespObject := api.ApiResponseWrapper[T]{Data: respObject}
+	pathParams := createPathParamsDescription(paramDescriptions)
+	querystring := createQueryDescription(queryObject)
+	requestBody := createRequestBodyDescription(bodyObject)
+
 	swaggerDefinitions := swagger.Definitions{
-		PathParams: pathParams,
+		RequestBody: requestBody,
+		PathParams:  pathParams,
+		Querystring: querystring,
 		Responses: map[int]swagger.ContentValue{
 			200: {
 				Content: swagger.Content{
-					"application/json": {Value: wrappedRespObject},
+					"application/json": {Value: respObject},
 				},
 			},
 		},
@@ -246,6 +223,55 @@ func ApiResponseErrorHandler(
 	return &ErrorHandler{
 		Handler: func(w http.ResponseWriter) {
 			WriteApiResponseError(w, status, errorMessage, errorDetails)
+		},
+	}
+}
+
+func createPathParamsDescription(paramDescriptions map[string]string) map[string]swagger.Parameter {
+	if len(paramDescriptions) == 0 {
+		return nil
+	}
+
+	pathParams := make(map[string]swagger.Parameter)
+	for name, description := range paramDescriptions {
+		pathParams[name] = swagger.Parameter{
+			Schema:      &swagger.Schema{Value: ""},
+			Description: description,
+		}
+	}
+	return pathParams
+}
+
+func createQueryDescription(queryObject interface{}) swagger.ParameterValue {
+	if queryObject == nil {
+		return nil
+	}
+	fields := StructFields(queryObject)
+	if len(fields) == 0 {
+		return nil
+	}
+
+	querystring := make(swagger.ParameterValue)
+	for _, field := range fields {
+		name := field.Tag.Get("json")
+		if name == "" {
+			name = field.Name
+		}
+		querystring[name] = swagger.Parameter{
+			Schema:      &swagger.Schema{Value: ""},
+			Description: field.Tag.Get("jsonschema"),
+		}
+	}
+	return querystring
+}
+
+func createRequestBodyDescription(bodyObject interface{}) *swagger.ContentValue {
+	if bodyObject == nil {
+		return nil
+	}
+	return &swagger.ContentValue{
+		Content: swagger.Content{
+			"application/json": {Value: bodyObject},
 		},
 	}
 }

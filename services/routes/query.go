@@ -52,7 +52,7 @@ func (qr *queryRouteHandlers) processAttestationRequest() utils.RouteHandler {
 		}
 		return qr.processPChainStakingRequest(unpackedReq)
 	}
-	return utils.NewRouteHandler(handler, http.MethodPost, api.APIAttestationRequest{}, &api.APIVerification[api.ARPChainStaking, api.DHPChainStaking]{})
+	return utils.NewBodyRouteHandler(handler, http.MethodPost, api.APIAttestationRequest{}, &api.APIVerification[api.ARPChainStaking, api.DHPChainStaking]{})
 }
 
 // Given parsed request in JSON with possibly invalid message integrity code it returns the verification object.
@@ -63,7 +63,7 @@ func (qr *queryRouteHandlers) prepareRequest() utils.RouteHandler {
 	handler := func(request api.ARPChainStaking) (*api.APIVerification[api.ARPChainStaking, api.DHPChainStaking], *utils.ErrorHandler) {
 		return qr.processPChainStakingRequest(&request)
 	}
-	return utils.NewRouteHandler(handler, http.MethodPost, api.ARPChainStaking{}, &api.APIVerification[api.ARPChainStaking, api.DHPChainStaking]{})
+	return utils.NewBodyRouteHandler(handler, http.MethodPost, api.ARPChainStaking{}, &api.APIVerification[api.ARPChainStaking, api.DHPChainStaking]{})
 }
 
 // Given parsed request in JSON with possibly invalid message integrity code it returns the message
@@ -83,7 +83,7 @@ func (qr *queryRouteHandlers) integrityRequest() utils.RouteHandler {
 		}
 		return code, nil
 	}
-	return utils.NewRouteHandler(handler, http.MethodPost, api.ARPChainStaking{}, "")
+	return utils.NewBodyRouteHandler(handler, http.MethodPost, api.ARPChainStaking{}, "")
 }
 
 // Given parsed @param request in JSON with possibly invalid message integrity code it returns the byte encoded
@@ -109,7 +109,7 @@ func (qr *queryRouteHandlers) prepareAttestationRequest() utils.RouteHandler {
 		}
 		return packedRequest, nil
 	}
-	return utils.NewRouteHandler(handler, http.MethodPost, api.ARPChainStaking{}, "")
+	return utils.NewBodyRouteHandler(handler, http.MethodPost, api.ARPChainStaking{}, "")
 }
 
 // Process attestation request. Write errors into w, if any, otherwise return the response.

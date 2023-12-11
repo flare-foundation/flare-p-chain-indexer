@@ -33,7 +33,7 @@ func (rh *transferRouteHandlers) listTransferTransactions(txType database.PChain
 		}
 		return TxIDsResponse{TxIDs: txIDs}, nil
 	}
-	return utils.NewRouteHandler(handler, http.MethodPost, GetTransferRequest{}, TxIDsResponse{})
+	return utils.NewBodyRouteHandler(handler, http.MethodPost, GetTransferRequest{}, TxIDsResponse{})
 }
 
 func AddTransferRoutes(router utils.Router, ctx context.ServicesContext) {

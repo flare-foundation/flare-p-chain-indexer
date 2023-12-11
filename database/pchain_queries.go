@@ -82,6 +82,36 @@ func FetchPChainStakingTransactions(
 	return utils.Map(validatorTxs, func(t PChainTx) string { return *t.TxID }), nil
 }
 
+// Returns a list of all transactions by address in its inputs. Order is by block height
+func FetchPChainTransactionsByInputAddress(
+	db *gorm.DB,
+	address string,
+	offset int,
+	limit int,
+) ([]PChainTxData, error) {
+	var txs []PChainTxData
+
+	if limit <= 0 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	err := db.
+		Table("p_chain_txes").
+		Joins("left join p_chain_tx_inputs as inputs on inputs.tx_id = p_chain_txes.tx_id").
+		Where("inputs.address = ?", address).
+		Order("p_chain_txes.block_height").
+		Offset(offset).Limit(limit).
+		Select("p_chain_txes.*, inputs.address as input_address, inputs.in_idx as input_index").
+		Find(&txs).
+		Error
+	if err != nil {
+		return nil, err
+	}
+	return txs, nil
+}
+
 // Returns a list of staking data for stakers active at specific time which include input addresses.
 // Request is paginated (offset, limit).
 func FetchPChainStakingData(
