@@ -14,7 +14,8 @@ import (
 
 type GetTransactionsByAddressRequest struct {
 	PaginatedRequest
-	Address string `json:"address"`
+	InputAddress  string `json:"inputAddress"`
+	OutputAddress string `json:"outputAddress"`
 }
 
 type transactionRouteHandlers struct {
@@ -76,19 +77,19 @@ func (rh *transactionRouteHandlers) listTransactionsByEpoch() utils.RouteHandler
 	)
 }
 
-func (rh *transactionRouteHandlers) listTransactionsByAddress() utils.RouteHandler {
-	handler := func(pathParams map[string]string, query GetTransactionsByAddressRequest, body interface{}) ([]api.ApiPChainTxListItem, *utils.ErrorHandler) {
-		txs, err := database.FetchPChainTransactionsByInputAddress(rh.db, query.Address, query.Offset, query.Limit)
+func (rh *transactionRouteHandlers) listTransactionsByAddresses() utils.RouteHandler {
+	handler := func(pathParams map[string]string, query GetTransactionsByAddressRequest, body interface{}) ([]api.ApiPChainTxListInOutItem, *utils.ErrorHandler) {
+		txs, err := database.FetchPChainTransactionsByAddresses(rh.db, query.InputAddress, query.OutputAddress, query.Offset, query.Limit)
 		if err != nil {
 			return nil, utils.InternalServerErrorHandler(err)
 		}
-		return api.NewApiPChainTxList(txs), nil
+		return api.NewApiPChainTxInOutList(txs), nil
 	}
 	return utils.NewGeneralRouteHandler(handler, http.MethodGet,
 		nil,
 		GetTransactionsByAddressRequest{},
 		nil,
-		[]api.ApiPChainTxListItem{},
+		[]api.ApiPChainTxListInOutItem{},
 	)
 }
 
@@ -99,5 +100,6 @@ func AddTransactionRoutes(
 	subrouter := router.WithPrefix("/transactions", "Transactions")
 	subrouter.AddRoute("/get/{tx_id:[0-9a-zA-Z]+}", vr.getTransaction())
 	subrouter.AddRoute("/list/{epoch:[0-9]+}", vr.listTransactionsByEpoch())
-	subrouter.AddRoute("/list", vr.listTransactionsByAddress())
+	subrouter.AddRoute("/list", vr.listTransactionsByAddresses(),
+		"List all transactions by input or output address.")
 }

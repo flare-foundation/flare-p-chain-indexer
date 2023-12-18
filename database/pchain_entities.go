@@ -12,7 +12,7 @@ type PChainTx struct {
 	BlockID       string          `gorm:"type:varchar(50);not null"` // Block ID
 	BlockType     PChainBlockType `gorm:"type:varchar(20)"`          // Block type (proposal, accepted, rejected, etc.)
 	RewardTxID    string          `gorm:"type:varchar(50)"`          // Referred transaction id in case of reward validator tx
-	BlockHeight   uint64          `gorm:"index"`                     // Block height
+	BlockHeight   uint64          `gorm:"index;unique"`              // Block height
 	Timestamp     time.Time       // Time when indexed
 	ChainID       string          `gorm:"type:varchar(50)"` // Filled in case of export or import transaction
 	NodeID        string          `gorm:"type:varchar(50)"` // Filled in case of add delegator or validator transaction

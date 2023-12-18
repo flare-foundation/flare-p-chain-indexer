@@ -3,8 +3,10 @@ package database
 import (
 	"flare-indexer/utils"
 	"fmt"
+	"strings"
 	"time"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"gorm.io/gorm"
 )
 
@@ -83,13 +85,18 @@ func FetchPChainStakingTransactions(
 }
 
 // Returns a list of all transactions by address in its inputs. Order is by block height
-func FetchPChainTransactionsByInputAddress(
+func FetchPChainTransactionsByAddresses(
 	db *gorm.DB,
-	address string,
+	inputAddress string,
+	outputAddress string,
 	offset int,
 	limit int,
-) ([]PChainTxData, error) {
-	var txs []PChainTxData
+) ([]PChainTxInOutData, error) {
+	var txs []struct {
+		PChainTx
+		InputData  string
+		OutputData string
+	}
 
 	if limit <= 0 {
 		limit = 100
@@ -97,19 +104,109 @@ func FetchPChainTransactionsByInputAddress(
 	if offset < 0 {
 		offset = 0
 	}
-	err := db.
-		Table("p_chain_txes").
-		Joins("left join p_chain_tx_inputs as inputs on inputs.tx_id = p_chain_txes.tx_id").
-		Where("inputs.address = ?", address).
-		Order("p_chain_txes.block_height").
-		Offset(offset).Limit(limit).
-		Select("p_chain_txes.*, inputs.address as input_address, inputs.in_idx as input_index").
-		Find(&txs).
-		Error
+	err := db.Connection(func(dbTx *gorm.DB) error {
+		err := dbTx.Exec("set session group_concat_max_len = 1000000").Error
+		if err != nil {
+			return err
+		}
+		query := dbTx.
+			Table("p_chain_txes").
+			Joins("left join p_chain_tx_inputs as inputs on inputs.tx_id = p_chain_txes.tx_id").
+			Joins("left join p_chain_tx_outputs as outputs on outputs.tx_id = p_chain_txes.tx_id")
+		if len(inputAddress) > 0 && len(outputAddress) > 0 {
+			query = query.Where("inputs.address = ? OR outputs.address = ?", inputAddress, outputAddress)
+		} else if len(inputAddress) > 0 {
+			query = query.Where("inputs.address = ?", inputAddress)
+		} else if len(outputAddress) > 0 {
+			query = query.Where("outputs.address = ?", outputAddress)
+		}
+		query = query.
+			Order("p_chain_txes.block_height").
+			Group("p_chain_txes.id").
+			Offset(offset).Limit(limit).
+			Select("p_chain_txes.*, " +
+				"group_concat(inputs.in_idx,' ',inputs.amount,' ',inputs.address) as input_data, " +
+				"group_concat(outputs.idx,' ',outputs.amount,' ',outputs.address,' ',outputs.type) as output_data")
+		return query.Find(&txs).Error
+	})
+
 	if err != nil {
 		return nil, err
 	}
-	return txs, nil
+
+	result := make([]PChainTxInOutData, len(txs))
+	for i, tx := range txs {
+		outputData, err := parsePChainTxOutputData(tx.OutputData)
+		if err != nil {
+			return nil, err
+		}
+		inputData, err := parsePChainTxInputData(tx.InputData)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = PChainTxInOutData{
+			PChainTx: tx.PChainTx,
+			Inputs:   inputData,
+			Outputs:  outputData,
+		}
+	}
+	return result, nil
+}
+
+func parsePChainTxInputData(dataString string) ([]PChainTxInputData, error) {
+	if len(dataString) == 0 {
+		return nil, nil
+	}
+	data := strings.Split(dataString, ",")
+	result := make([]PChainTxInputData, 0, len(data))
+	idxs := mapset.NewSet[uint32]()
+	for _, d := range data {
+		var idx uint32
+		var amount uint64
+		var address string
+		if n, err := fmt.Sscanf(d, "%d %d %s", &idx, &amount, &address); err != nil || n != 3 {
+			return nil, err
+		}
+		if idxs.Contains(idx) {
+			continue
+		}
+		result = append(result, PChainTxInputData{
+			Idx:     idx,
+			Amount:  amount,
+			Address: address,
+		})
+		idxs.Add(idx)
+	}
+	return result, nil
+}
+
+func parsePChainTxOutputData(dataString string) ([]PChainTxOutputData, error) {
+	if len(dataString) == 0 {
+		return nil, nil
+	}
+	data := strings.Split(dataString, ",")
+	result := make([]PChainTxOutputData, 0, len(data))
+	idxs := mapset.NewSet[uint32]()
+	for _, d := range data {
+		var idx uint32
+		var amount uint64
+		var address string
+		var outputType PChainOutputType
+		if n, err := fmt.Sscanf(d, "%d %d %s %s", &idx, &amount, &address, &outputType); err != nil || n != 4 {
+			return nil, err
+		}
+		if idxs.Contains(idx) {
+			continue
+		}
+		result = append(result, PChainTxOutputData{
+			Idx:     idx,
+			Amount:  amount,
+			Address: address,
+			Type:    outputType,
+		})
+		idxs.Add(idx)
+	}
+	return result, nil
 }
 
 // Returns a list of staking data for stakers active at specific time which include input addresses.
@@ -233,6 +330,25 @@ type PChainTxData struct {
 	PChainTx
 	InputAddress string
 	InputIndex   uint32
+}
+
+type PChainTxInputData struct {
+	Idx     uint32
+	Amount  uint64
+	Address string
+}
+
+type PChainTxOutputData struct {
+	Idx     uint32
+	Amount  uint64
+	Address string
+	Type    PChainOutputType
+}
+
+type PChainTxInOutData struct {
+	PChainTx
+	Inputs  []PChainTxInputData
+	Outputs []PChainTxOutputData
 }
 
 // Find P-chain transaction in given block height
