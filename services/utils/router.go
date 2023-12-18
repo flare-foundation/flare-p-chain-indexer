@@ -186,7 +186,7 @@ func NewGeneralRouteHandler[Q interface{}, B interface{}, R interface{}](
 		Responses: map[int]swagger.ContentValue{
 			200: {
 				Content: swagger.Content{
-					"application/json": {Value: respObject},
+					"application/json": {Value: api.ApiResponseWrapper[R]{Data: respObject}},
 				},
 			},
 		},

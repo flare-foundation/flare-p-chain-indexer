@@ -16,6 +16,7 @@ type GetTransactionsByAddressRequest struct {
 	PaginatedRequest
 	InputAddress  string `json:"inputAddress"`
 	OutputAddress string `json:"outputAddress"`
+	BlockHeight   uint64 `json:"blockHeight" jsonschema:"Filter by transactions with block height >= blockHeight. Blocks start with 1. If not specified, 1 is used."`
 }
 
 type transactionRouteHandlers struct {
@@ -79,7 +80,7 @@ func (rh *transactionRouteHandlers) listTransactionsByEpoch() utils.RouteHandler
 
 func (rh *transactionRouteHandlers) listTransactionsByAddresses() utils.RouteHandler {
 	handler := func(pathParams map[string]string, query GetTransactionsByAddressRequest, body interface{}) ([]api.ApiPChainTxListInOutItem, *utils.ErrorHandler) {
-		txs, err := database.FetchPChainTransactionsByAddresses(rh.db, query.InputAddress, query.OutputAddress, query.Offset, query.Limit)
+		txs, err := database.FetchPChainTransactionsByAddresses(rh.db, query.InputAddress, query.OutputAddress, query.BlockHeight, query.Offset, query.Limit)
 		if err != nil {
 			return nil, utils.InternalServerErrorHandler(err)
 		}
@@ -93,6 +94,22 @@ func (rh *transactionRouteHandlers) listTransactionsByAddresses() utils.RouteHan
 	)
 }
 
+func (rh *transactionRouteHandlers) maxBlockHeight() utils.RouteHandler {
+	handler := func(pathParams map[string]string, query interface{}, body interface{}) (uint64, *utils.ErrorHandler) {
+		blockNumber, err := database.GetMaxBlockHeight(rh.db)
+		if err != nil {
+			return 0, utils.InternalServerErrorHandler(err)
+		}
+		return blockNumber, nil
+	}
+	return utils.NewGeneralRouteHandler(handler, http.MethodGet,
+		nil,
+		nil,
+		nil,
+		uint64(0),
+	)
+}
+
 func AddTransactionRoutes(
 	router utils.Router, ctx context.ServicesContext, epochs staking.EpochInfo,
 ) {
@@ -102,4 +119,5 @@ func AddTransactionRoutes(
 	subrouter.AddRoute("/list/{epoch:[0-9]+}", vr.listTransactionsByEpoch())
 	subrouter.AddRoute("/list", vr.listTransactionsByAddresses(),
 		"List all transactions by input or output address.")
+	subrouter.AddRoute("/max_block_height", vr.maxBlockHeight())
 }

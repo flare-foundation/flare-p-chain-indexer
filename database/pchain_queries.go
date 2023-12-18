@@ -57,7 +57,7 @@ func FetchPChainStakingTransactions(
 	if txType != PChainAddValidatorTx && txType != PChainAddDelegatorTx {
 		return nil, errInvalidTransactionType
 	}
-	if limit <= 0 {
+	if limit <= 0 || limit > 100 {
 		limit = 100
 	}
 	if offset < 0 {
@@ -89,6 +89,7 @@ func FetchPChainTransactionsByAddresses(
 	db *gorm.DB,
 	inputAddress string,
 	outputAddress string,
+	blockHeight uint64,
 	offset int,
 	limit int,
 ) ([]PChainTxInOutData, error) {
@@ -98,11 +99,14 @@ func FetchPChainTransactionsByAddresses(
 		OutputData string
 	}
 
-	if limit <= 0 {
+	if limit <= 0 || limit > 100 {
 		limit = 100
 	}
 	if offset < 0 {
 		offset = 0
+	}
+	if blockHeight <= 0 {
+		blockHeight = 1
 	}
 	err := db.Connection(func(dbTx *gorm.DB) error {
 		err := dbTx.Exec("set session group_concat_max_len = 1000000").Error
@@ -112,7 +116,8 @@ func FetchPChainTransactionsByAddresses(
 		query := dbTx.
 			Table("p_chain_txes").
 			Joins("left join p_chain_tx_inputs as inputs on inputs.tx_id = p_chain_txes.tx_id").
-			Joins("left join p_chain_tx_outputs as outputs on outputs.tx_id = p_chain_txes.tx_id")
+			Joins("left join p_chain_tx_outputs as outputs on outputs.tx_id = p_chain_txes.tx_id").
+			Where("p_chain_txes.block_height >= ?", blockHeight)
 		if len(inputAddress) > 0 && len(outputAddress) > 0 {
 			query = query.Where("inputs.address = ? OR outputs.address = ?", inputAddress, outputAddress)
 		} else if len(inputAddress) > 0 {
@@ -121,8 +126,8 @@ func FetchPChainTransactionsByAddresses(
 			query = query.Where("outputs.address = ?", outputAddress)
 		}
 		query = query.
-			Order("p_chain_txes.block_height").
 			Group("p_chain_txes.id").
+			Order("p_chain_txes.block_height").
 			Offset(offset).Limit(limit).
 			Select("p_chain_txes.*, " +
 				"group_concat(inputs.in_idx,' ',inputs.amount,' ',inputs.address) as input_data, " +
@@ -151,6 +156,12 @@ func FetchPChainTransactionsByAddresses(
 		}
 	}
 	return result, nil
+}
+
+func GetMaxBlockHeight(db *gorm.DB) (uint64, error) {
+	var blockNumber uint64
+	err := db.Model(&PChainTx{}).Select("max(block_height)").Scan(&blockNumber).Error
+	return blockNumber, err
 }
 
 func parsePChainTxInputData(dataString string) ([]PChainTxInputData, error) {
@@ -220,7 +231,7 @@ func FetchPChainStakingData(
 ) ([]PChainTxData, error) {
 	var validatorTxs []PChainTxData
 
-	if limit <= 0 {
+	if limit <= 0 || limit > 100 {
 		limit = 100
 	}
 	if offset < 0 {
@@ -251,7 +262,7 @@ func FetchPChainTransferTransactions(
 	if txType != PChainImportTx && txType != PChainExportTx {
 		return nil, errInvalidTransactionType
 	}
-	if limit <= 0 {
+	if limit <= 0 || limit > 100 {
 		limit = 100
 	}
 	if offset < 0 {
