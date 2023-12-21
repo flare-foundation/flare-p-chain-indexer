@@ -10,8 +10,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 )
 
@@ -20,9 +18,6 @@ const (
 )
 
 var (
-	zeroBytes     [32]byte    = [32]byte{}
-	zeroBytesHash common.Hash = crypto.Keccak256Hash(zeroBytes[:])
-
 	ErrEpochConfig = errors.New("epoch config mismatch")
 )
 
@@ -152,14 +147,9 @@ func (c *votingCronjob) submitVotes(e int64, votingData []database.PChainTxData)
 		return nil
 	}
 
-	var merkleRoot common.Hash
-	if len(votingData) == 0 {
-		merkleRoot = zeroBytesHash
-	} else {
-		merkleRoot, err = staking.GetMerkleRoot(votingData)
-		if err != nil {
-			return err
-		}
+	merkleRoot, err := staking.GetMerkleRoot(votingData)
+	if err != nil {
+		return err
 	}
 
 	// Submit vote and wait for the transaction to be mined

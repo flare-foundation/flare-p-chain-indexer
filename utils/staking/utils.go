@@ -17,6 +17,8 @@ import (
 
 var (
 	merkleTreeItemABIObjectArguments abi.Arguments
+	zeroBytes                        [32]byte    = [32]byte{}
+	zeroBytesHash                    common.Hash = crypto.Keccak256Hash(zeroBytes[:])
 )
 
 func init() {
@@ -185,6 +187,10 @@ func BuildTree(txs []database.PChainTxData) (merkle.Tree, error) {
 }
 
 func GetMerkleRoot(votingData []database.PChainTxData) (common.Hash, error) {
+	if len(votingData) == 0 {
+		return zeroBytesHash, nil
+	}
+
 	tree, err := BuildTree(votingData)
 	if err != nil {
 		return [32]byte{}, err

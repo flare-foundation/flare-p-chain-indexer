@@ -3,6 +3,8 @@ package api
 import (
 	"flare-indexer/database"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type ApiPChainTx struct {
@@ -103,4 +105,14 @@ func NewApiPChainTxList(txs []database.PChainTxData) []ApiPChainTxListItem {
 	}
 
 	return result
+}
+
+type ApiMerkleRoot struct {
+	Root string `json:"root"`
+}
+
+func NewApiMerkleRoot(root common.Hash) *ApiMerkleRoot {
+	return &ApiMerkleRoot{
+		Root: root.Hex(),
+	}
 }

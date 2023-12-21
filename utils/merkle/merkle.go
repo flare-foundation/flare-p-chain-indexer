@@ -39,6 +39,10 @@ func NewFromHex(hexValues []string) Tree {
 
 // Given an array of leaf hashes, builds the Merkle tree.
 func Build(hashes []common.Hash, initialHash bool) Tree {
+	if len(hashes) == 0 {
+		return New(nil)
+	}
+
 	if initialHash {
 		hashes = mapSingleHash(hashes)
 	}
