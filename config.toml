@@ -27,7 +27,7 @@ chain_id = 162
 eth_rpc_url = "http://localhost:9650/ext/bc/C/rpc"
 # api key may be needed for access to production nodes
 api_key = ""
-# private_key_file is needed for voting and mirroring clients
+# private_key_file is needed for mirroring client
 private_key_file = "path/to/private/key/file"
 
 [x_chain_indexer]
@@ -51,12 +51,6 @@ start = "2021-08-01T00:00:00Z"
 period = "90s"
 uptime_threshold = 0.8
 delete_old_uptimes_epoch_threshold = 5
-
-[voting_cronjob]
-enabled = false
-timeout = "10s"
-# first epoch to be voted for (do not leave this empty since the first epoch is well back in time)
-first = 1111
 
 [mirroring_cronjob]
 enabled = false

@@ -17,7 +17,6 @@ type Config struct {
 	PChainIndexer     IndexerConfig       `toml:"p_chain_indexer"`
 	UptimeCronjob     UptimeConfig        `toml:"uptime_cronjob"`
 	Mirror            MirrorConfig        `toml:"mirroring_cronjob"`
-	VotingCronjob     VotingConfig        `toml:"voting_cronjob"`
 	ContractAddresses ContractAddresses   `toml:"contract_addresses"`
 }
 
@@ -42,12 +41,6 @@ type CronjobConfig struct {
 type MirrorConfig struct {
 	CronjobConfig
 	config.EpochConfig
-}
-
-type VotingConfig struct {
-	CronjobConfig
-	config.EpochConfig
-	GasLimit uint64 `toml:"gas_limit" envconfig:"VOTING_GAS_LIMIT"`
 }
 
 type UptimeConfig struct {
