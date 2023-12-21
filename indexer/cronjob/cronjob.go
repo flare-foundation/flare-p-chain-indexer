@@ -1,7 +1,6 @@
 package cronjob
 
 import (
-	"flare-indexer/database"
 	"flare-indexer/indexer/config"
 	"flare-indexer/indexer/shared"
 	"flare-indexer/logger"
@@ -98,11 +97,6 @@ func (c *epochCronjob) UpdateCronjobStatus(status shared.HealthStatus) {
 	}
 }
 
-// Get processing range (closed interval)
-func (c *epochCronjob) getEpochRange(start int64, now time.Time) *epochRange {
-	return c.getTrimmedEpochRange(start, c.epochs.GetEpochIndex(now)-1)
-}
-
 // Get trimmed processing range (closed interval)
 func (c *epochCronjob) getTrimmedEpochRange(start, end int64) *epochRange {
 	start = utils.Max(start, c.epochs.First)
@@ -116,11 +110,6 @@ func (c *epochCronjob) getTrimmedEpochRange(start, end int64) *epochRange {
 		end = batchSize + start - 1
 	}
 	return &epochRange{start, end}
-}
-
-func (c *epochCronjob) indexerBehind(idxState *database.State, epoch int64) bool {
-	epochEnd := c.epochs.GetEndTime(epoch)
-	return epochEnd.After(idxState.Updated.Add(-c.delay)) || idxState.NextDBIndex <= idxState.LastChainIndex
 }
 
 func (c *epochCronjob) updateLastEpochMetrics(epoch int64) {

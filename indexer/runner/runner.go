@@ -12,10 +12,6 @@ func Start(ctx context.IndexerContext) {
 	xIndexer := xchain.CreateXChainTxIndexer(ctx)
 	pIndexer := pchain.CreatePChainBlockIndexer(ctx)
 
-	votingCronjob, err := cronjob.NewVotingCronjob(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
 	mirrorCronjob, err := cronjob.NewMirrorCronjob(ctx)
 	if err != nil {
 		log.Fatal(err)
@@ -30,7 +26,6 @@ func Start(ctx context.IndexerContext) {
 	go pIndexer.Run()
 
 	go cronjob.RunCronjob(uptimeCronjob)
-	go cronjob.RunCronjob(votingCronjob)
 	go cronjob.RunCronjob(mirrorCronjob)
 	go cronjob.RunCronjob(uptimeVotingCronjob)
 }
