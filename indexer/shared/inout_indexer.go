@@ -1,6 +1,7 @@
 package shared
 
 import (
+	"flare-indexer/database"
 	"fmt"
 
 	"github.com/ava-labs/avalanchego/vms/components/avax"
@@ -39,18 +40,40 @@ func (iox *InputOutputIndexer) AddNewFromBaseTx(
 	tx *avax.BaseTx,
 	creator InputOutputCreator,
 ) error {
-	outs, err := OutputsFromTxOuts(txID, tx.Outs, 0, creator)
+	outs, err := OutputsFromTxOuts(txID, tx.Outs, 0, database.DefaultOutput, creator)
 	if err != nil {
 		return err
 	}
 	iox.outs = append(iox.outs, outs...)
-	iox.ins = append(iox.ins, InputsFromTxIns(txID, tx.Ins, creator)...)
+	iox.ins = append(iox.ins, InputsFromTxIns(txID, tx.Ins, database.DefaultInput, creator)...)
 	return nil
 }
 
 func (iox *InputOutputIndexer) Add(outs []Output, ins []Input) {
 	iox.outs = append(iox.outs, outs...)
 	iox.ins = append(iox.ins, ins...)
+}
+
+func (iox *InputOutputIndexer) AddImportInputs(
+	txID string,
+	importedInputs []*avax.TransferableInput,
+	creator InputOutputCreator,
+) {
+	iox.ins = append(iox.ins, InputsFromTxIns(txID, importedInputs, database.ImportInput, creator)...)
+}
+
+func (iox *InputOutputIndexer) AddExportOutputs(
+	txID string,
+	exportedOutputs []*avax.TransferableOutput,
+	offset int,
+	creator InputOutputCreator,
+) error {
+	outs, err := OutputsFromTxOuts(txID, exportedOutputs, offset, database.ExportOutput, creator)
+	if err != nil {
+		return err
+	}
+	iox.outs = append(iox.outs, outs...)
+	return nil
 }
 
 func (iox *InputOutputIndexer) UpdateInputs(inputs []Input) error {

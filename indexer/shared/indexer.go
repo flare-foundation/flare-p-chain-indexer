@@ -12,7 +12,7 @@ import (
 )
 
 type ContainerBatchIndexer interface {
-	Reset(containerLen int)
+	Reset(containerLen int) error
 	AddContainer(index uint64, container indexer.Container) error
 	ProcessBatch() error
 	PersistEntities(db *gorm.DB) error
@@ -103,7 +103,10 @@ func (ci *ChainIndexerBase) IndexBatch() error {
 }
 
 func (ci *ChainIndexerBase) ProcessContainers(nextIndex uint64, containers []indexer.Container) (uint64, error) {
-	ci.BatchIndexer.Reset(len(containers))
+	err := ci.BatchIndexer.Reset(len(containers))
+	if err != nil {
+		return 0, err
+	}
 
 	var index uint64
 	for i, container := range containers {
@@ -115,7 +118,7 @@ func (ci *ChainIndexerBase) ProcessContainers(nextIndex uint64, containers []ind
 		}
 	}
 
-	err := ci.BatchIndexer.ProcessBatch()
+	err = ci.BatchIndexer.ProcessBatch()
 	if err != nil {
 		return 0, err
 	}
@@ -129,6 +132,7 @@ func (ci *ChainIndexerBase) Run() {
 		ci.SetStatus(HealthStatusOk)
 		return
 	}
+
 	ticker := time.NewTicker(ci.Config.Timeout)
 	for range ticker.C {
 		err := ci.IndexBatch()

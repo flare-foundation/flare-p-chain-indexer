@@ -42,10 +42,11 @@ func NewXChainBatchIndexer(
 	}
 }
 
-func (xi *txBatchIndexer) Reset(containerLen int) {
+func (xi *txBatchIndexer) Reset(containerLen int) error {
 	xi.newVertices = make([]*database.XChainVtx, 0, containerLen)
 	xi.newTxs = make([]*database.XChainTx, 0, 5*containerLen) // approximate
 	xi.inOutIndexer.Reset(containerLen)
+	return nil
 }
 
 func (xi *txBatchIndexer) AddContainer(index uint64, container indexer.Container) error {

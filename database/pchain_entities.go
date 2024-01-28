@@ -24,6 +24,7 @@ type PChainTx struct {
 	Memo          string          `gorm:"type:varchar(256)"`
 	Bytes         []byte          `gorm:"type:mediumblob"`
 	FeePercentage uint32          // Fee percentage (in case of add validator transaction)
+	ChainTime     *time.Time      // Chain time, time of the previous advance time transaction
 }
 
 type PChainTxInput struct {
@@ -32,5 +33,4 @@ type PChainTxInput struct {
 
 type PChainTxOutput struct {
 	TxOutput
-	Type PChainOutputType `gorm:"type:varchar(20)"` // Transaction output type (default or "stake" output)
 }

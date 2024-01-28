@@ -3,10 +3,8 @@ package database
 import (
 	"flare-indexer/utils"
 	"fmt"
-	"strings"
 	"time"
 
-	mapset "github.com/deckarep/golang-set/v2"
 	"gorm.io/gorm"
 )
 
@@ -93,11 +91,12 @@ func FetchPChainTransactionsByAddresses(
 	offset int,
 	limit int,
 ) ([]PChainTxInOutData, error) {
-	var txs []struct {
-		PChainTx
-		InputData  string
-		OutputData string
-	}
+	// var txs []struct {
+	// 	PChainTx
+	// 	InputData  string
+	// 	OutputData string
+	// }
+	var txs []PChainTx
 
 	if limit <= 0 || limit > 100 {
 		limit = 100
@@ -108,51 +107,60 @@ func FetchPChainTransactionsByAddresses(
 	if blockHeight <= 0 {
 		blockHeight = 1
 	}
-	err := db.Connection(func(dbTx *gorm.DB) error {
-		err := dbTx.Exec("set session group_concat_max_len = 1000000").Error
-		if err != nil {
-			return err
-		}
-		query := dbTx.
-			Table("p_chain_txes").
-			Joins("left join p_chain_tx_inputs as inputs on inputs.tx_id = p_chain_txes.tx_id").
-			Joins("left join p_chain_tx_outputs as outputs on outputs.tx_id = p_chain_txes.tx_id").
-			Where("p_chain_txes.block_height >= ?", blockHeight)
-		if len(inputAddress) > 0 && len(outputAddress) > 0 {
-			query = query.Where("inputs.address = ? OR outputs.address = ?", inputAddress, outputAddress)
-		} else if len(inputAddress) > 0 {
-			query = query.Where("inputs.address = ?", inputAddress)
-		} else if len(outputAddress) > 0 {
-			query = query.Where("outputs.address = ?", outputAddress)
-		}
-		query = query.
-			Group("p_chain_txes.id").
-			Order("p_chain_txes.block_height").
-			Offset(offset).Limit(limit).
-			Select("p_chain_txes.*, " +
-				"group_concat(inputs.in_idx,' ',inputs.amount,' ',inputs.address) as input_data, " +
-				"group_concat(outputs.idx,' ',outputs.amount,' ',outputs.address,' ',outputs.type) as output_data")
-		return query.Find(&txs).Error
-	})
-
+	// err := db.Connection(func(dbTx *gorm.DB) error {
+	// 	err := dbTx.Exec("set session group_concat_max_len = 1000000").Error
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	query := db.
+		Table("p_chain_txes").
+		Joins("left join p_chain_tx_inputs as inputs on inputs.tx_id = p_chain_txes.tx_id").
+		Joins("left join p_chain_tx_outputs as outputs on outputs.tx_id = p_chain_txes.tx_id").
+		Where("p_chain_txes.block_height >= ?", blockHeight)
+	if len(inputAddress) > 0 && len(outputAddress) > 0 {
+		query = query.Where("inputs.address = ? OR outputs.address = ?", inputAddress, outputAddress)
+	} else if len(inputAddress) > 0 {
+		query = query.Where("inputs.address = ?", inputAddress)
+	} else if len(outputAddress) > 0 {
+		query = query.Where("outputs.address = ?", outputAddress)
+	}
+	err := query.
+		Group("p_chain_txes.id").
+		Order("p_chain_txes.block_height").
+		Offset(offset).Limit(limit).
+		Find(&txs).Error
 	if err != nil {
 		return nil, err
 	}
 
+	txIds := utils.Map(txs, func(t PChainTx) string { return *t.TxID })
+
+	var ins []*PChainTxInput
+	err = db.Where("tx_id IN ?", txIds).Find(&ins).Error
+	if err != nil {
+		return nil, err
+	}
+	txInsMap := make(map[string][]*PChainTxInput)
+	for _, in := range ins {
+		txInsMap[in.TxID] = append(txInsMap[in.TxID], in)
+	}
+
+	var outs []*PChainTxOutput
+	err = db.Where("tx_id IN ?", txIds).Find(&outs).Error
+	if err != nil {
+		return nil, err
+	}
+	txOutsMap := make(map[string][]*PChainTxOutput)
+	for _, out := range outs {
+		txOutsMap[out.TxID] = append(txOutsMap[out.TxID], out)
+	}
+
 	result := make([]PChainTxInOutData, len(txs))
 	for i, tx := range txs {
-		outputData, err := parsePChainTxOutputData(tx.OutputData)
-		if err != nil {
-			return nil, err
-		}
-		inputData, err := parsePChainTxInputData(tx.InputData)
-		if err != nil {
-			return nil, err
-		}
 		result[i] = PChainTxInOutData{
-			PChainTx: tx.PChainTx,
-			Inputs:   inputData,
-			Outputs:  outputData,
+			PChainTx: tx,
+			Inputs:   newPChainTxInputDataFromTxIns(txInsMap[*tx.TxID]),
+			Outputs:  newPChainTxOutputDataFromTxOuts(txOutsMap[*tx.TxID]),
 		}
 	}
 	return result, nil
@@ -164,60 +172,30 @@ func GetMaxBlockHeight(db *gorm.DB) (uint64, error) {
 	return blockNumber, err
 }
 
-func parsePChainTxInputData(dataString string) ([]PChainTxInputData, error) {
-	if len(dataString) == 0 {
-		return nil, nil
-	}
-	data := strings.Split(dataString, ",")
-	result := make([]PChainTxInputData, 0, len(data))
-	idxs := mapset.NewSet[uint32]()
-	for _, d := range data {
-		var idx uint32
-		var amount uint64
-		var address string
-		if n, err := fmt.Sscanf(d, "%d %d %s", &idx, &amount, &address); err != nil || n != 3 {
-			return nil, err
+func newPChainTxInputDataFromTxIns(txIns []*PChainTxInput) []PChainTxInputData {
+	result := make([]PChainTxInputData, len(txIns))
+	for i, in := range txIns {
+		result[i] = PChainTxInputData{
+			Idx:     in.InIdx,
+			Amount:  in.Amount,
+			Address: in.Address,
+			Type:    in.Type,
 		}
-		if idxs.Contains(idx) {
-			continue
-		}
-		result = append(result, PChainTxInputData{
-			Idx:     idx,
-			Amount:  amount,
-			Address: address,
-		})
-		idxs.Add(idx)
 	}
-	return result, nil
+	return result
 }
 
-func parsePChainTxOutputData(dataString string) ([]PChainTxOutputData, error) {
-	if len(dataString) == 0 {
-		return nil, nil
-	}
-	data := strings.Split(dataString, ",")
-	result := make([]PChainTxOutputData, 0, len(data))
-	idxs := mapset.NewSet[uint32]()
-	for _, d := range data {
-		var idx uint32
-		var amount uint64
-		var address string
-		var outputType PChainOutputType
-		if n, err := fmt.Sscanf(d, "%d %d %s %s", &idx, &amount, &address, &outputType); err != nil || n != 4 {
-			return nil, err
+func newPChainTxOutputDataFromTxOuts(txOuts []*PChainTxOutput) []PChainTxOutputData {
+	result := make([]PChainTxOutputData, len(txOuts))
+	for i, out := range txOuts {
+		result[i] = PChainTxOutputData{
+			Idx:     out.Idx,
+			Amount:  out.Amount,
+			Address: out.Address,
+			Type:    out.Type,
 		}
-		if idxs.Contains(idx) {
-			continue
-		}
-		result = append(result, PChainTxOutputData{
-			Idx:     idx,
-			Amount:  amount,
-			Address: address,
-			Type:    outputType,
-		})
-		idxs.Add(idx)
 	}
-	return result, nil
+	return result
 }
 
 // Returns a list of staking data for stakers active at specific time which include input addresses.
@@ -242,7 +220,7 @@ func FetchPChainStakingData(
 		Table("p_chain_txes").
 		Joins("left join p_chain_tx_inputs as inputs on inputs.tx_id = p_chain_txes.tx_id").
 		Where("start_time <= ?", time).Where("? <= end_time", time).
-		Where("type = ?", txType).
+		Where("p_chain_txes.type = ?", txType).
 		Group("p_chain_txes.id").
 		Order("p_chain_txes.id").Offset(offset).Limit(limit).
 		Select("p_chain_txes.*, group_concat(distinct(inputs.address)) as input_address").
@@ -347,13 +325,14 @@ type PChainTxInputData struct {
 	Idx     uint32
 	Amount  uint64
 	Address string
+	Type    InputType
 }
 
 type PChainTxOutputData struct {
 	Idx     uint32
 	Amount  uint64
 	Address string
-	Type    PChainOutputType
+	Type    OutputType
 }
 
 type PChainTxInOutData struct {
@@ -395,7 +374,7 @@ func FetchPChainVotingData(db *gorm.DB, from time.Time, to time.Time) ([]PChainT
 	query := db.
 		Table("p_chain_txes").
 		Joins("left join p_chain_tx_inputs as inputs on inputs.tx_id = p_chain_txes.tx_id").
-		Where("type = ? OR type = ?", PChainAddValidatorTx, PChainAddDelegatorTx).
+		Where("p_chain_txes.type = ? OR p_chain_txes.type = ?", PChainAddValidatorTx, PChainAddDelegatorTx).
 		Where("start_time >= ?", from).Where("start_time < ?", to).
 		Select("p_chain_txes.*, inputs.address as input_address, inputs.in_idx as input_index").
 		Scan(&data)
@@ -441,4 +420,14 @@ func FetchNodeStakingIntervals(db *gorm.DB, txType PChainTxType, startTime time.
 		Where("end_time >= ?", startTime).
 		Find(&txs).Error
 	return txs, err
+}
+
+func FetchLastChainTime(db *gorm.DB) (*time.Time, error) {
+	var timeTx PChainTx
+	err := db.Where(&PChainTx{Type: PChainAdvanceTimeTx}).
+		Select("time").
+		Order("block_height desc").
+		Limit(1).
+		Find(&timeTx).Error
+	return timeTx.Time, err
 }

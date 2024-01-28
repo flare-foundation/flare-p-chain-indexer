@@ -14,22 +14,24 @@ type ApiPChainTx struct {
 	StartTime   *time.Time            `json:"startTime"`
 	EndTime     *time.Time            `json:"endTime"`
 	Weight      uint64                `json:"weight"`
+	ChainTime   *time.Time            `json:"chainTime"`
 
 	Inputs  []ApiPChainTxInput  `json:"inputs"`
 	Outputs []ApiPChainTxOutput `json:"outputs"`
 }
 
 type ApiPChainTxInput struct {
-	Amount  uint64 `json:"amount"`
-	Address string `json:"address"`
-	Idx     uint32 `json:"index"`
+	Amount  uint64             `json:"amount"`
+	Address string             `json:"address"`
+	Idx     uint32             `json:"index"`
+	Type    database.InputType `json:"type"`
 }
 
 type ApiPChainTxOutput struct {
-	Amount  uint64                    `json:"amount"`
-	Address string                    `json:"address"`
-	Idx     uint32                    `json:"index"`
-	Type    database.PChainOutputType `json:"type"`
+	Amount  uint64              `json:"amount"`
+	Address string              `json:"address"`
+	Idx     uint32              `json:"index"`
+	Type    database.OutputType `json:"type"`
 }
 
 func NewApiPChainTx(tx *database.PChainTx, inputs []database.PChainTxInput, outputs []database.PChainTxOutput) *ApiPChainTx {
@@ -42,6 +44,7 @@ func NewApiPChainTx(tx *database.PChainTx, inputs []database.PChainTxInput, outp
 		StartTime:   tx.StartTime,
 		EndTime:     tx.EndTime,
 		Weight:      tx.Weight,
+		ChainTime:   tx.ChainTime,
 		Inputs:      newApiPChainInputs(inputs),
 		Outputs:     newApiPChainOutputs(outputs),
 	}
@@ -54,6 +57,7 @@ func newApiPChainInputs(inputs []database.PChainTxInput) []ApiPChainTxInput {
 			Amount:  in.Amount,
 			Address: in.Address,
 			Idx:     in.InIdx,
+			Type:    in.Type,
 		}
 	}
 	return result
@@ -66,6 +70,7 @@ func newApiPChainInputsFromTxData(inputs []database.PChainTxInputData) []ApiPCha
 			Amount:  in.Amount,
 			Address: in.Address,
 			Idx:     in.Idx,
+			Type:    in.Type,
 		}
 	}
 	return result

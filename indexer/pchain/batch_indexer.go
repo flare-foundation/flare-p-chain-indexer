@@ -37,6 +37,8 @@ type txBatchIndexer struct {
 	inOutIndexer    *shared.InputOutputIndexer
 	newTxs          []*database.PChainTx
 	dataTransformer *PChainDataTransformer
+
+	chainTime *time.Time
 }
 
 func NewPChainDataTransformer(txTransformer func(tx *database.PChainTx) *database.PChainTx) *PChainDataTransformer {
@@ -60,12 +62,16 @@ func NewPChainBatchIndexer(
 		inOutIndexer:    shared.NewInputOutputIndexer(updater),
 		newTxs:          make([]*database.PChainTx, 0),
 		dataTransformer: dataTransformer,
+
+		chainTime: nil,
 	}
 }
 
-func (xi *txBatchIndexer) Reset(containerLen int) {
+func (xi *txBatchIndexer) Reset(containerLen int) (err error) {
 	xi.newTxs = make([]*database.PChainTx, 0, containerLen)
 	xi.inOutIndexer.Reset(containerLen)
+	xi.chainTime, err = database.FetchLastChainTime(xi.db)
+	return err
 }
 
 func (xi *txBatchIndexer) AddContainer(index uint64, container indexer.Container) error {
@@ -112,6 +118,7 @@ func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database
 	dbTx.BlockHeight = height
 	dbTx.Timestamp = chain.TimestampToTime(container.Timestamp)
 	dbTx.Bytes = container.Bytes
+	dbTx.ChainTime = xi.chainTime
 
 	var err error = nil
 	switch unsignedTx := tx.Unsigned.(type) {
@@ -179,27 +186,34 @@ func (xi *txBatchIndexer) updateImportTx(dbTx *database.PChainTx, tx *txs.Import
 	dbTx.Type = database.PChainImportTx
 	dbTx.ChainID = tx.SourceChain.String()
 	xi.newTxs = append(xi.newTxs, dbTx)
-	return xi.inOutIndexer.AddNewFromBaseTx(*dbTx.TxID, &tx.BaseTx.BaseTx, PChainDefaultInputOutputCreator)
+	xi.inOutIndexer.AddImportInputs(*dbTx.TxID, tx.ImportedInputs, PChainInputOutputCreator) // Here we have additional inputs
+	return xi.inOutIndexer.AddNewFromBaseTx(*dbTx.TxID, &tx.BaseTx.BaseTx, PChainInputOutputCreator)
 }
 
 func (xi *txBatchIndexer) updateExportTx(dbTx *database.PChainTx, tx *txs.ExportTx) error {
 	dbTx.Type = database.PChainExportTx
 	dbTx.ChainID = tx.DestinationChain.String()
 	xi.newTxs = append(xi.newTxs, dbTx)
-	return xi.inOutIndexer.AddNewFromBaseTx(*dbTx.TxID, &tx.BaseTx.BaseTx, PChainDefaultInputOutputCreator)
+	err := xi.inOutIndexer.AddNewFromBaseTx(*dbTx.TxID, &tx.BaseTx.BaseTx, PChainInputOutputCreator)
+	if err != nil {
+		return err
+	}
+	return xi.inOutIndexer.AddExportOutputs(*dbTx.TxID, tx.ExportedOutputs, len(tx.BaseTx.BaseTx.Outs), PChainInputOutputCreator)
 }
 
 func (xi *txBatchIndexer) updateAdvanceTimeTx(dbTx *database.PChainTx, tx *txs.AdvanceTimeTx) {
-	time := time.Unix(int64(tx.Time), 0)
+	t := time.Unix(int64(tx.Time), 0)
+	xi.chainTime = &t
 	dbTx.Type = database.PChainAdvanceTimeTx
-	dbTx.Time = &time
+	dbTx.Time = xi.chainTime
+	dbTx.ChainTime = xi.chainTime
 	xi.newTxs = append(xi.newTxs, dbTx)
 }
 
 func (xi *txBatchIndexer) updateGeneralBaseTx(dbTx *database.PChainTx, txType database.PChainTxType, baseTx *txs.BaseTx) error {
 	dbTx.Type = txType
 	xi.newTxs = append(xi.newTxs, dbTx)
-	return xi.inOutIndexer.AddNewFromBaseTx(*dbTx.TxID, &baseTx.BaseTx, PChainDefaultInputOutputCreator)
+	return xi.inOutIndexer.AddNewFromBaseTx(*dbTx.TxID, &baseTx.BaseTx, PChainInputOutputCreator)
 }
 
 // Persist all entities
@@ -246,7 +260,7 @@ func (xi *txBatchIndexer) updateAddStakerTx(
 	if err != nil {
 		return err
 	}
-	ins := shared.InputsFromTxIns(*dbTx.TxID, txIns, PChainDefaultInputOutputCreator)
+	ins := shared.InputsFromTxIns(*dbTx.TxID, txIns, database.DefaultInput, PChainInputOutputCreator)
 
 	xi.newTxs = append(xi.newTxs, dbTx)
 	xi.inOutIndexer.Add(outs, ins)
@@ -254,11 +268,11 @@ func (xi *txBatchIndexer) updateAddStakerTx(
 }
 
 func getAddStakerTxOutputs(txID string, tx txs.PermissionlessStaker) ([]shared.Output, error) {
-	outs, err := shared.OutputsFromTxOuts(txID, tx.Outputs(), 0, PChainDefaultInputOutputCreator)
+	outs, err := shared.OutputsFromTxOuts(txID, tx.Outputs(), 0, database.DefaultOutput, PChainInputOutputCreator)
 	if err != nil {
 		return nil, err
 	}
-	stakeOuts, err := shared.OutputsFromTxOuts(txID, tx.Stake(), len(outs), PChainStakerInputOutputCreator)
+	stakeOuts, err := shared.OutputsFromTxOuts(txID, tx.Stake(), len(outs), database.PChainStakeOutput, PChainInputOutputCreator)
 	if err != nil {
 		return nil, err
 	}
@@ -271,5 +285,5 @@ func getRewardOutputs(client chain.RPCClient, txID string) ([]shared.Output, err
 	if err != nil {
 		return nil, err
 	}
-	return shared.OutputsFromUTXO(txID, utxos, PChainRewardOutputCreator)
+	return shared.OutputsFromUTXO(txID, utxos, PChainInputOutputCreator)
 }

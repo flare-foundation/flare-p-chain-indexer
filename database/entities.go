@@ -32,9 +32,10 @@ type TxInput struct {
 	InIdx   uint32 // Index of the input
 	TxID    string `gorm:"type:varchar(50);not null;index"` // Transaction ID
 	Amount  uint64
-	Address string `gorm:"type:varchar(60);index"`
-	OutTxID string `gorm:"type:varchar(50)"` // Transaction ID with output
-	OutIdx  uint32 // Index of the output
+	Address string    `gorm:"type:varchar(60);index"`
+	OutTxID string    `gorm:"type:varchar(50)"` // Transaction ID with output
+	OutIdx  uint32    // Index of the output
+	Type    InputType `gorm:"type:varchar(20)"` // Transaction input type (default or "input" input)
 }
 
 // Abstact entity, common columns for X-chain and P-chain transaction inputs
@@ -44,4 +45,6 @@ type TxOutput struct {
 	Amount  uint64
 	Idx     uint32
 	Address string `gorm:"type:varchar(60);index"`
+	Type OutputType `gorm:"type:varchar(20)"` // Transaction output type (default or "stake" output)
+
 }

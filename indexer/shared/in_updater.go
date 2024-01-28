@@ -43,7 +43,9 @@ func (iu *BaseInputUpdater) UpdateInputsFromCache(notUpdated InputList) mapset.S
 func NewInputList(inputs []Input) InputList {
 	list := InputList{list.New()}
 	for _, in := range inputs {
-		list.inputs.PushBack(in)
+		if !in.ImportInput() {
+			list.inputs.PushBack(in)
+		}
 	}
 	return list
 }

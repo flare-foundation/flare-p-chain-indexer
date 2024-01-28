@@ -35,12 +35,21 @@ const (
 	PChainStandardBlock PChainBlockType = "STANDARD_BLOCK"
 )
 
-type PChainOutputType string
+type OutputType string
 
 const (
-	PChainDefaultOutput PChainOutputType = "TX"
-	PChainStakeOutput   PChainOutputType = "STAKE"
-	PChainRewardOutput  PChainOutputType = "REWARD"
+	DefaultOutput      OutputType = "TX"
+	ExportOutput       OutputType = "EXPORT"
+	PChainStakeOutput  OutputType = "STAKE"
+	PChainRewardOutput OutputType = "REWARD"
+	PChainExportOutput OutputType = "EXPORT"
+)
+
+type InputType string
+
+const (
+	DefaultInput InputType = "TX"
+	ImportInput  InputType = "IMPORT"
 )
 
 // Misc other types

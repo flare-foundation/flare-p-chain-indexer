@@ -14,12 +14,19 @@ import (
 // Create database outputs from TransferableOutputs, provided their type is *secp256k1fx.TransferOutput and the
 // number of addresses for each output is 1. Error is returned if these two conditions
 // are not met.
-func OutputsFromTxOuts(txID string, outs []*avax.TransferableOutput, startIndex int, creator OutputCreator) ([]Output, error) {
+func OutputsFromTxOuts(
+	txID string,
+	outs []*avax.TransferableOutput,
+	startIndex int,
+	outputType database.OutputType,
+	creator OutputCreator,
+) ([]Output, error) {
 	txOuts := make([]Output, len(outs))
 	for outi, cout := range outs {
 		dbOut := &database.TxOutput{
 			TxID: txID,
 			Idx:  uint32(outi + startIndex),
+			Type: outputType,
 		}
 		err := UpdateTransferableOutput(dbOut, cout.Out)
 		if err != nil {
@@ -84,7 +91,7 @@ func RewardsOwnerAddress(owner fx.Owner) (string, error) {
 
 // Create inputs to BaseTx. Note that addresses of inputs are are not set. They should be updated from
 // cached outputs, outputs from the database or outputs from chain
-func InputsFromTxIns(txID string, ins []*avax.TransferableInput, creator InputCreator) []Input {
+func InputsFromTxIns(txID string, ins []*avax.TransferableInput, inputType database.InputType, creator InputCreator) []Input {
 	txIns := make([]Input, len(ins))
 	for ini, in := range ins {
 		txIns[ini] = creator.CreateInput(&database.TxInput{
@@ -93,6 +100,7 @@ func InputsFromTxIns(txID string, ins []*avax.TransferableInput, creator InputCr
 			Amount:  in.In.Amount(),
 			OutTxID: in.TxID.String(),
 			OutIdx:  in.OutputIndex,
+			Type:    inputType,
 		})
 	}
 	return txIns

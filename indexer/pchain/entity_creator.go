@@ -5,20 +5,11 @@ import (
 	"flare-indexer/indexer/shared"
 )
 
-var (
-	PChainDefaultInputOutputCreator = inputOutputCreator{outputType: database.PChainDefaultOutput}
-	PChainStakerInputOutputCreator  = inputOutputCreator{outputType: database.PChainStakeOutput}
-	PChainRewardOutputCreator       = inputOutputCreator{outputType: database.PChainRewardOutput}
-)
+var PChainInputOutputCreator = inputOutputCreator{}
 
-type inputCreator struct{}
+type inputOutputCreator struct{}
 
-type inputOutputCreator struct {
-	inputCreator
-	outputType database.PChainOutputType
-}
-
-func (ioc inputCreator) CreateInput(in *database.TxInput) shared.Input {
+func (ioc inputOutputCreator) CreateInput(in *database.TxInput) shared.Input {
 	return &database.PChainTxInput{
 		TxInput: *in,
 	}
@@ -26,7 +17,6 @@ func (ioc inputCreator) CreateInput(in *database.TxInput) shared.Input {
 
 func (ioc inputOutputCreator) CreateOutput(out *database.TxOutput) shared.Output {
 	return &database.PChainTxOutput{
-		Type:     ioc.outputType,
 		TxOutput: *out,
 	}
 }

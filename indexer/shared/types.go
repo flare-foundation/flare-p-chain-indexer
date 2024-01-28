@@ -12,9 +12,10 @@ type Output interface {
 }
 
 type Input interface {
-	OutTx() string    // output transaction id of the input
-	OutIndex() uint32 // index of output transaction
-	Addr() string     // address
+	OutTx() string     // output transaction id of the input
+	OutIndex() uint32  // index of output transaction
+	Addr() string      // address
+	ImportInput() bool // is import input (does not need address update)
 
 	UpdateAddr(string)
 }

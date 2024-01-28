@@ -77,7 +77,7 @@ func (iu *pChainInputUpdater) updateFromChain(
 			outs, err = iu.getAddStakerTxAndRewardTxOutputs(txId, unsignedTx)
 		default:
 			txOuts := tx.Unsigned.Outputs()
-			outs, err = shared.OutputsFromTxOuts(txId, txOuts, 0, PChainDefaultInputOutputCreator)
+			outs, err = shared.OutputsFromTxOuts(txId, txOuts, 0, database.DefaultOutput, PChainInputOutputCreator)
 		}
 		if err != nil {
 			return nil, err

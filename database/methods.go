@@ -39,3 +39,7 @@ func (in TxInput) OutIndex() uint32 {
 func (in *TxInput) UpdateAddr(addr string) {
 	in.Address = addr
 }
+
+func (in TxInput) ImportInput() bool {
+	return in.Type == ImportInput
+}

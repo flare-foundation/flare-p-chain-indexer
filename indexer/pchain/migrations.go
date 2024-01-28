@@ -10,6 +10,7 @@ import (
 
 func init() {
 	migrations.Container.Add("2023-02-10-00-00", "Create initial state for P-Chain transactions", createPChainTxState)
+	migrations.Container.Add("2024-01-24-00-00", "Update transaction input type", updateTxInputType)
 }
 
 func createPChainTxState(db *gorm.DB) error {
@@ -19,4 +20,12 @@ func createPChainTxState(db *gorm.DB) error {
 		LastChainIndex: 0,
 		Updated:        time.Now(),
 	})
+}
+
+func updateTxInputType(db *gorm.DB) error {
+	err := db.Model(&database.XChainTxInput{}).Where("type IS NULL").Update("type", database.DefaultInput).Error
+	if err != nil {
+		return err
+	}
+	return db.Model(&database.PChainTxInput{}).Where("type IS NULL").Update("type", database.DefaultInput).Error
 }

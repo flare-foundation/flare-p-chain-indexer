@@ -9,7 +9,8 @@ import (
 )
 
 const (
-	StateName string = "p_chain_block"
+	StateName          string = "p_chain_block"
+	ChainTimeStateName string = "p_chain_time"
 )
 
 type pChainBlockIndexer struct {

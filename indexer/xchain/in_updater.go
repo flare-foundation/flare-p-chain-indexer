@@ -75,9 +75,9 @@ func (iu *xChainInputUpdater) updateFromChain(
 		var outs []shared.Output
 		switch unsignedTx := tx.Unsigned.(type) {
 		case *txs.BaseTx:
-			outs, err = shared.OutputsFromTxOuts(txId, unsignedTx.Outs, 0, XChainInputOutputCreator /* TODO could be identity, it is not persisted */)
+			outs, err = shared.OutputsFromTxOuts(txId, unsignedTx.Outs, 0, database.DefaultOutput, XChainInputOutputCreator /* TODO could be identity, it is not persisted */)
 		case *txs.ImportTx:
-			outs, err = shared.OutputsFromTxOuts(txId, unsignedTx.BaseTx.Outs, 0, XChainInputOutputCreator /* TODO could be identity it is not persisted */)
+			outs, err = shared.OutputsFromTxOuts(txId, unsignedTx.BaseTx.Outs, 0, database.DefaultOutput, XChainInputOutputCreator /* TODO could be identity it is not persisted */)
 		default:
 			return nil, fmt.Errorf("transaction with id %s has unsupported type %T", container.ID.String(), unsignedTx)
 		}
