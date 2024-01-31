@@ -91,11 +91,6 @@ func FetchPChainTransactionsByAddresses(
 	offset int,
 	limit int,
 ) ([]PChainTxInOutData, error) {
-	// var txs []struct {
-	// 	PChainTx
-	// 	InputData  string
-	// 	OutputData string
-	// }
 	var txs []PChainTx
 
 	if limit <= 0 || limit > 100 {
@@ -107,11 +102,7 @@ func FetchPChainTransactionsByAddresses(
 	if blockHeight <= 0 {
 		blockHeight = 1
 	}
-	// err := db.Connection(func(dbTx *gorm.DB) error {
-	// 	err := dbTx.Exec("set session group_concat_max_len = 1000000").Error
-	// 	if err != nil {
-	// 		return err
-	// 	}
+
 	query := db.
 		Table("p_chain_txes").
 		Joins("left join p_chain_tx_inputs as inputs on inputs.tx_id = p_chain_txes.tx_id").
@@ -128,12 +119,18 @@ func FetchPChainTransactionsByAddresses(
 		Group("p_chain_txes.id").
 		Order("p_chain_txes.block_height").
 		Offset(offset).Limit(limit).
+		Omit("p_chain_txes.bytes").
 		Find(&txs).Error
 	if err != nil {
 		return nil, err
 	}
 
-	txIds := utils.Map(txs, func(t PChainTx) string { return *t.TxID })
+	var txIds []string
+	for _, tx := range txs {
+		if tx.TxID != nil {
+			txIds = append(txIds, *tx.TxID)
+		}
+	}
 
 	var ins []*PChainTxInput
 	err = db.Where("tx_id IN ?", txIds).Find(&ins).Error
@@ -157,10 +154,17 @@ func FetchPChainTransactionsByAddresses(
 
 	result := make([]PChainTxInOutData, len(txs))
 	for i, tx := range txs {
+		var ins []PChainTxInputData
+		var outs []PChainTxOutputData
+
+		if tx.TxID != nil {
+			ins = newPChainTxInputDataFromTxIns(txInsMap[*tx.TxID])
+			outs = newPChainTxOutputDataFromTxOuts(txOutsMap[*tx.TxID])
+		}
 		result[i] = PChainTxInOutData{
 			PChainTx: tx,
-			Inputs:   newPChainTxInputDataFromTxIns(txInsMap[*tx.TxID]),
-			Outputs:  newPChainTxOutputDataFromTxOuts(txOutsMap[*tx.TxID]),
+			Inputs:   ins,
+			Outputs:  outs,
 		}
 	}
 	return result, nil

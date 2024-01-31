@@ -79,7 +79,7 @@ func (rh *transactionRouteHandlers) listTransactionsByEpoch() utils.RouteHandler
 }
 
 func (rh *transactionRouteHandlers) listTransactionsByAddresses() utils.RouteHandler {
-	handler := func(pathParams map[string]string, query GetTransactionsByAddressRequest, body interface{}) ([]api.ApiPChainTxListInOutItem, *utils.ErrorHandler) {
+	handler := func(pathParams map[string]string, query GetTransactionsByAddressRequest, body interface{}) ([]api.ApiPChainTx, *utils.ErrorHandler) {
 		txs, err := database.FetchPChainTransactionsByAddresses(rh.db, query.InputAddress, query.OutputAddress, query.BlockHeight, query.Offset, query.Limit)
 		if err != nil {
 			return nil, utils.InternalServerErrorHandler(err)
@@ -90,7 +90,7 @@ func (rh *transactionRouteHandlers) listTransactionsByAddresses() utils.RouteHan
 		nil,
 		GetTransactionsByAddressRequest{},
 		nil,
-		[]api.ApiPChainTxListInOutItem{},
+		[]api.ApiPChainTx{},
 	)
 }
 

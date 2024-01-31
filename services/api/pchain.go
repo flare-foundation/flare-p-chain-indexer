@@ -5,16 +5,21 @@ import (
 	"time"
 )
 
+type ApiPChainTxBase struct {
+	Type          database.PChainTxType `json:"type"`
+	TxID          *string               `json:"txID"`
+	BlockHeight   uint64                `json:"blockHeight"`
+	ChainID       string                `json:"chainID"`
+	NodeID        string                `json:"nodeID"`
+	StartTime     *time.Time            `json:"startTime"`
+	EndTime       *time.Time            `json:"endTime"`
+	Weight        uint64                `json:"weight"`
+	FeePercentage uint32                `json:"feePercentage"`
+	ChainTime     *time.Time            `json:"chainTime"`
+}
+
 type ApiPChainTx struct {
-	Type        database.PChainTxType `json:"type"`
-	TxID        *string               `json:"txID"`
-	BlockHeight uint64                `json:"blockHeight"`
-	ChainID     string                `json:"chainID"`
-	NodeID      string                `json:"nodeID"`
-	StartTime   *time.Time            `json:"startTime"`
-	EndTime     *time.Time            `json:"endTime"`
-	Weight      uint64                `json:"weight"`
-	ChainTime   *time.Time            `json:"chainTime"`
+	ApiPChainTxBase
 
 	Inputs  []ApiPChainTxInput  `json:"inputs"`
 	Outputs []ApiPChainTxOutput `json:"outputs"`
@@ -34,19 +39,26 @@ type ApiPChainTxOutput struct {
 	Type    database.OutputType `json:"type"`
 }
 
+func newApiPChainTxBase(tx *database.PChainTx) ApiPChainTxBase {
+	return ApiPChainTxBase{
+		Type:          tx.Type,
+		TxID:          tx.TxID,
+		BlockHeight:   tx.BlockHeight,
+		ChainID:       tx.ChainID,
+		NodeID:        tx.NodeID,
+		StartTime:     tx.StartTime,
+		EndTime:       tx.EndTime,
+		Weight:        tx.Weight,
+		ChainTime:     tx.ChainTime,
+		FeePercentage: tx.FeePercentage,
+	}
+}
+
 func NewApiPChainTx(tx *database.PChainTx, inputs []database.PChainTxInput, outputs []database.PChainTxOutput) *ApiPChainTx {
 	return &ApiPChainTx{
-		Type:        tx.Type,
-		TxID:        tx.TxID,
-		BlockHeight: tx.BlockHeight,
-		ChainID:     tx.ChainID,
-		NodeID:      tx.NodeID,
-		StartTime:   tx.StartTime,
-		EndTime:     tx.EndTime,
-		Weight:      tx.Weight,
-		ChainTime:   tx.ChainTime,
-		Inputs:      newApiPChainInputs(inputs),
-		Outputs:     newApiPChainOutputs(outputs),
+		newApiPChainTxBase(tx),
+		newApiPChainInputs(inputs),
+		newApiPChainOutputs(outputs),
 	}
 }
 
@@ -102,47 +114,18 @@ func newApiPChainOutputsFromTxData(inputs []database.PChainTxOutputData) []ApiPC
 	return result
 }
 
-type ApiPChainTxListBaseItem struct {
-	Type        database.PChainTxType `json:"type"`
-	TxID        *string               `json:"txID"`
-	BlockHeight uint64                `json:"blockHeight"`
-	ChainID     string                `json:"chainID"`
-	NodeID      string                `json:"nodeID"`
-	StartTime   *time.Time            `json:"startTime"`
-	EndTime     *time.Time            `json:"endTime"`
-	Weight      uint64                `json:"weight"`
-}
-
 type ApiPChainTxListItem struct {
-	ApiPChainTxListBaseItem
+	ApiPChainTxBase
+
 	InputAddress string `json:"inputAddress"`
 	InputIndex   uint32 `json:"inputIndex"`
 }
 
-type ApiPChainTxListInOutItem struct {
-	ApiPChainTxListBaseItem
-	Inputs  []ApiPChainTxInput  `json:"inputs"`
-	Outputs []ApiPChainTxOutput `json:"outputs"`
-}
-
-func newApiPChainTxListBaseItem(tx *database.PChainTx) ApiPChainTxListBaseItem {
-	return ApiPChainTxListBaseItem{
-		Type:        tx.Type,
-		TxID:        tx.TxID,
-		BlockHeight: tx.BlockHeight,
-		ChainID:     tx.ChainID,
-		NodeID:      tx.NodeID,
-		StartTime:   tx.StartTime,
-		EndTime:     tx.EndTime,
-		Weight:      tx.Weight,
-	}
-}
-
 func newApiPChainTxListItem(tx *database.PChainTxData) ApiPChainTxListItem {
 	return ApiPChainTxListItem{
-		ApiPChainTxListBaseItem: newApiPChainTxListBaseItem(&tx.PChainTx),
-		InputAddress:            tx.InputAddress,
-		InputIndex:              tx.InputIndex,
+		ApiPChainTxBase: newApiPChainTxBase(&tx.PChainTx),
+		InputAddress:    tx.InputAddress,
+		InputIndex:      tx.InputIndex,
 	}
 }
 
@@ -155,13 +138,14 @@ func NewApiPChainTxList(txs []database.PChainTxData) []ApiPChainTxListItem {
 	return result
 }
 
-func NewApiPChainTxInOutList(txs []database.PChainTxInOutData) []ApiPChainTxListInOutItem {
-	result := make([]ApiPChainTxListInOutItem, len(txs))
+func NewApiPChainTxInOutList(txs []database.PChainTxInOutData) []ApiPChainTx {
+
+	result := make([]ApiPChainTx, len(txs))
 	for i, tx := range txs {
-		result[i] = ApiPChainTxListInOutItem{
-			ApiPChainTxListBaseItem: newApiPChainTxListBaseItem(&tx.PChainTx),
-			Inputs:                  newApiPChainInputsFromTxData(tx.Inputs),
-			Outputs:                 newApiPChainOutputsFromTxData(tx.Outputs),
+		result[i] = ApiPChainTx{
+			ApiPChainTxBase: newApiPChainTxBase(&tx.PChainTx),
+			Inputs:          newApiPChainInputsFromTxData(tx.Inputs),
+			Outputs:         newApiPChainOutputsFromTxData(tx.Outputs),
 		}
 	}
 
