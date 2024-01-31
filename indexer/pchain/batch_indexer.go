@@ -7,6 +7,7 @@ import (
 	"flare-indexer/utils"
 	"flare-indexer/utils/chain"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ava-labs/avalanchego/indexer"
@@ -15,6 +16,7 @@ import (
 	"github.com/ava-labs/avalanchego/vms/platformvm/fx"
 	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
 	"github.com/ava-labs/avalanchego/vms/proposervm/block"
+	mapset "github.com/deckarep/golang-set/v2"
 	"gorm.io/gorm"
 )
 
@@ -37,6 +39,10 @@ type txBatchIndexer struct {
 	inOutIndexer    *shared.InputOutputIndexer
 	newTxs          []*database.PChainTx
 	dataTransformer *PChainDataTransformer
+	newAddresses    []*database.Address
+	addressCache    mapset.Set[string] // ethAddresses already persisted (to avoid unneccessary db queries)
+
+	saveAddresses bool // Whether to save addresses in the database (turn on in config if needed)
 
 	chainTime *time.Time
 }
@@ -63,6 +69,9 @@ func NewPChainBatchIndexer(
 		newTxs:          make([]*database.PChainTx, 0),
 		dataTransformer: dataTransformer,
 
+		addressCache:  mapset.NewSet[string](),
+		saveAddresses: ctx.Config().PChainIndexer.SaveAddresses,
+
 		chainTime: nil,
 	}
 }
@@ -71,7 +80,14 @@ func (xi *txBatchIndexer) Reset(containerLen int) (err error) {
 	xi.newTxs = make([]*database.PChainTx, 0, containerLen)
 	xi.inOutIndexer.Reset(containerLen)
 	xi.chainTime, err = database.FetchLastChainTime(xi.db)
-	return err
+	if err != nil {
+		return
+	}
+	xi.newAddresses = make([]*database.Address, 0)
+	for _, a := range xi.newAddresses {
+		xi.addressCache.Add(a.EthAddress)
+	}
+	return
 }
 
 func (xi *txBatchIndexer) AddContainer(index uint64, container indexer.Container) error {
@@ -143,7 +159,10 @@ func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database
 	default:
 		err = fmt.Errorf("p-chain transaction %v with type %T in block %d is not indexed", dbTx.TxID, unsignedTx, height)
 	}
-	return err
+	if err != nil {
+		return err
+	}
+	return xi.addAddresses(tx)
 }
 
 func (xi *txBatchIndexer) addEmptyTx(container *indexer.Container, blockType database.PChainBlockType, height uint64) {
@@ -156,6 +175,36 @@ func (xi *txBatchIndexer) addEmptyTx(container *indexer.Container, blockType dat
 	dbTx.TxID = nil
 
 	xi.newTxs = append(xi.newTxs, dbTx)
+}
+
+func (xi *txBatchIndexer) addAddresses(tx *txs.Tx) error {
+	if !xi.saveAddresses {
+		return nil
+	}
+	keys, err := chain.PublicKeysFromPChainTx(tx)
+	if err != nil {
+		return err
+	}
+	for _, txKeys := range keys {
+		for _, key := range txKeys {
+			ethAddress, err := chain.PublicKeyToEthAddress(key)
+			if err != nil {
+				return err
+			}
+			ethAddressString := strings.TrimPrefix(ethAddress.Hex(), "0x")
+			bechAddressString, err := chain.FormatAddressBytes(key.Address().Bytes())
+			if err != nil {
+				return err
+			}
+			if !xi.addressCache.Contains(ethAddressString) {
+				xi.newAddresses = append(xi.newAddresses, &database.Address{
+					EthAddress:  ethAddressString,
+					BechAddress: bechAddressString,
+				})
+			}
+		}
+	}
+	return nil
 }
 
 func (xi *txBatchIndexer) updateRewardValidatorTx(dbTx *database.PChainTx, tx *txs.RewardValidatorTx) error {
@@ -233,7 +282,11 @@ func (xi *txBatchIndexer) PersistEntities(db *gorm.DB) error {
 	} else {
 		txs = xi.newTxs
 	}
-	return database.CreatePChainEntities(db, txs, ins, outs)
+	err = database.CreatePChainEntities(db, txs, ins, outs)
+	if err != nil {
+		return err
+	}
+	return database.CreateAddresses(db, xi.newAddresses)
 }
 
 // Common code for AddDelegatorTx and AddValidatorTx

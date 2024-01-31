@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func FetchState(db *gorm.DB, name string) (State, error) {
@@ -68,4 +69,21 @@ func PersistUptimeAggregations(db *gorm.DB, aggregations []*UptimeAggregation) e
 
 func DeleteUptimesBefore(db *gorm.DB, timestamp time.Time) error {
 	return db.Where("timestamp < ?", timestamp).Delete(&UptimeCronjob{}).Error
+}
+
+func CreateAddresses(db *gorm.DB, addresses []*Address) error {
+	if len(addresses) == 0 {
+		return nil
+	}
+
+	return db.Clauses(clause.OnConflict{UpdateAll: true}).Create(addresses).Error
+}
+
+func FetchAddress(db *gorm.DB, addr string) (*Address, error) {
+	var address Address
+	err := db.Where("eth_address = ?", addr).Or("bech_address = ?", addr).First(&address).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &address, err
 }

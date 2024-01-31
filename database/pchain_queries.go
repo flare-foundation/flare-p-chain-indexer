@@ -105,8 +105,8 @@ func FetchPChainTransactionsByAddresses(
 
 	query := db.
 		Table("p_chain_txes").
-		Joins("left join p_chain_tx_inputs as inputs on inputs.tx_id = p_chain_txes.tx_id").
-		Joins("left join p_chain_tx_outputs as outputs on outputs.tx_id = p_chain_txes.tx_id").
+		Joins("INNER JOIN p_chain_tx_inputs as inputs on inputs.tx_id = p_chain_txes.tx_id").
+		Joins("INNER JOIN p_chain_tx_outputs as outputs on outputs.tx_id = p_chain_txes.tx_id").
 		Where("p_chain_txes.block_height >= ?", blockHeight)
 	if len(inputAddress) > 0 && len(outputAddress) > 0 {
 		query = query.Where("inputs.address = ? OR outputs.address = ?", inputAddress, outputAddress)

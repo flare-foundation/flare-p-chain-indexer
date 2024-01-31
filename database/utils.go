@@ -24,6 +24,7 @@ var (
 		PChainTxOutput{},
 		UptimeCronjob{},
 		UptimeAggregation{},
+		Address{},
 	}
 )
 

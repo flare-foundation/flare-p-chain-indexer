@@ -26,10 +26,11 @@ type MetricsConfig struct {
 }
 
 type IndexerConfig struct {
-	Enabled    bool          `toml:"enabled"`
-	Timeout    time.Duration `toml:"timeout"`
-	BatchSize  int           `toml:"batch_size"`
-	StartIndex uint64        `toml:"start_index"`
+	Enabled       bool          `toml:"enabled"`
+	Timeout       time.Duration `toml:"timeout"`
+	BatchSize     int           `toml:"batch_size"`
+	StartIndex    uint64        `toml:"start_index"`
+	SaveAddresses bool          `toml:"save_addresses"` // only for p-chain indexer
 }
 
 type CronjobConfig struct {

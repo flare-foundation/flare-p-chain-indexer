@@ -44,7 +44,13 @@ type TxOutput struct {
 	TxID    string `gorm:"type:varchar(50);not null;index"` // Transaction ID
 	Amount  uint64
 	Idx     uint32
-	Address string `gorm:"type:varchar(60);index"`
-	Type OutputType `gorm:"type:varchar(20)"` // Transaction output type (default or "stake" output)
+	Address string     `gorm:"type:varchar(60);index"`
+	Type    OutputType `gorm:"type:varchar(20)"` // Transaction output type (default or "stake" output)
 
+}
+
+type Address struct {
+	BaseEntity
+	EthAddress  string `gorm:"type:varchar(60);unique;not null"`
+	BechAddress string `gorm:"type:varchar(60);index;not null"`
 }

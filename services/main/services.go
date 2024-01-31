@@ -32,6 +32,7 @@ func main() {
 	routes.AddStakerRoutes(router, ctx)
 	routes.AddTransactionRoutes(router, ctx, epochs)
 	routes.AddMirroringRoutes(router, ctx, epochs)
+	routes.AddMiscRoutes(router, ctx)
 
 	// Disabled -- state connector routes are currently not used
 	// routes.AddQueryRoutes(router, ctx)

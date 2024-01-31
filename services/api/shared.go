@@ -1,5 +1,7 @@
 package api
 
+import "flare-indexer/database"
+
 type ApiResStatusEnum string
 
 const (
@@ -34,4 +36,20 @@ type ApiResponseWrapper[T any] struct {
 type ApiValidationErrorDetails struct {
 	ClassName   string            `json:"className"`
 	FieldErrors map[string]string `json:"fieldErrors"`
+}
+
+type ApiAddress struct {
+	EthAddress  string `json:"ethAddress"`
+	BechAddress string `json:"bechAddress"`
+}
+
+func NewApiAddress(address *database.Address) *ApiAddress {
+	if address == nil {
+		return nil
+	} else {
+		return &ApiAddress{
+			EthAddress:  "0x" + address.EthAddress,
+			BechAddress: address.BechAddress,
+		}
+	}
 }
