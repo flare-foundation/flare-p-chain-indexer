@@ -46,8 +46,8 @@ func (iu *pChainInputUpdater) updateFromDB(
 		return nil, err
 	}
 	baseOuts := shared.NewOutputMap()
-	for _, out := range outs {
-		baseOuts.Add(shared.NewIdIndexKey(out.TxID, out.Index()), &out.TxOutput)
+	for i, out := range outs {
+		baseOuts.Add(shared.NewIdIndexKey(out.TxID, out.Index()), &outs[i].TxOutput)
 	}
 	return inputs.UpdateWithOutputs(baseOuts), nil
 }
