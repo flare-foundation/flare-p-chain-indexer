@@ -98,9 +98,8 @@ func newApiPChainTxListItem(tx *database.PChainTxData) ApiPChainTxListItem {
 
 func NewApiPChainTxList(txs []database.PChainTxData) []ApiPChainTxListItem {
 	result := make([]ApiPChainTxListItem, len(txs))
-	for i, tx := range txs {
-		result[i] = newApiPChainTxListItem(&tx)
+	for i := range txs {
+		result[i] = newApiPChainTxListItem(&txs[i])
 	}
-
 	return result
 }
