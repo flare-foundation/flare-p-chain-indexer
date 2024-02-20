@@ -103,17 +103,28 @@ func FetchPChainTransactionsByAddresses(
 		blockHeight = 1
 	}
 
-	query := db.
-		Table("p_chain_txes").
-		Joins("INNER JOIN p_chain_tx_inputs as inputs on inputs.tx_id = p_chain_txes.tx_id").
-		Joins("INNER JOIN p_chain_tx_outputs as outputs on outputs.tx_id = p_chain_txes.tx_id").
-		Where("p_chain_txes.block_height >= ?", blockHeight)
+	query := db.Table("p_chain_txes")
+	if len(inputAddress) > 0 {
+		query = query.Joins("INNER JOIN p_chain_tx_inputs as inputs on inputs.tx_id = p_chain_txes.tx_id")
+	}
+	if len(outputAddress) > 0 {
+		query = query.Joins("INNER JOIN p_chain_tx_outputs as outputs on outputs.tx_id = p_chain_txes.tx_id")
+	}
+	query = query.Where("p_chain_txes.block_height >= ?", blockHeight)
 	if len(inputAddress) > 0 && len(outputAddress) > 0 {
 		query = query.Where("inputs.address = ? OR outputs.address = ?", inputAddress, outputAddress)
 	} else if len(inputAddress) > 0 {
 		query = query.Where("inputs.address = ?", inputAddress)
 	} else if len(outputAddress) > 0 {
 		query = query.Where("outputs.address = ?", outputAddress)
+	} else {
+		query = query.Where("p_chain_txes.type IN ?", []PChainTxType{
+			PChainAddDelegatorTx,
+			PChainAddValidatorTx,
+			PChainImportTx,
+			PChainExportTx,
+			PChainAdvanceTimeTx,
+		})
 	}
 	err := query.
 		Group("p_chain_txes.id").
