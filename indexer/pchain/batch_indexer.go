@@ -15,7 +15,6 @@ import (
 	"github.com/ava-labs/avalanchego/vms/platformvm/blocks"
 	"github.com/ava-labs/avalanchego/vms/platformvm/fx"
 	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
-	"github.com/ava-labs/avalanchego/vms/proposervm/block"
 	mapset "github.com/deckarep/golang-set/v2"
 	"gorm.io/gorm"
 )
@@ -91,11 +90,7 @@ func (xi *txBatchIndexer) Reset(containerLen int) (err error) {
 }
 
 func (xi *txBatchIndexer) AddContainer(index uint64, container indexer.Container) error {
-	blk, err := block.Parse(container.Bytes)
-	if err != nil {
-		return err
-	}
-	innerBlk, err := blocks.Parse(blocks.GenesisCodec, blk.Block())
+	innerBlk, err := chain.ParsePChainBlock(container.Bytes)
 	if err != nil {
 		return err
 	}
