@@ -81,14 +81,28 @@ func (xi *txBatchIndexer) AddContainer(index uint64, container indexer.Container
 	switch innerBlkType := innerBlk.(type) {
 	case *blocks.ApricotProposalBlock:
 		tx := innerBlkType.Tx
-		err = xi.addTx(&container, database.PChainProposalBlock, innerBlk.Height(), tx)
+		err = xi.addTx(&container, database.PChainProposalBlock, innerBlk.Height(), tx, 0)
 	case *blocks.ApricotCommitBlock:
-		xi.addEmptyTx(&container, database.PChainCommitBlock, innerBlk.Height())
+		xi.addEmptyTx(&container, database.PChainCommitBlock, innerBlk.Height(), 0)
 	case *blocks.ApricotAbortBlock:
-		xi.addEmptyTx(&container, database.PChainAbortBlock, innerBlk.Height())
+		xi.addEmptyTx(&container, database.PChainAbortBlock, innerBlk.Height(), 0)
 	case *blocks.ApricotStandardBlock:
 		for _, tx := range innerBlkType.Txs() {
-			err = xi.addTx(&container, database.PChainStandardBlock, innerBlk.Height(), tx)
+			err = xi.addTx(&container, database.PChainStandardBlock, innerBlk.Height(), tx, 0)
+			if err != nil {
+				break
+			}
+		}
+	case *blocks.BanffProposalBlock:
+		tx := innerBlkType.Tx
+		err = xi.addTx(&container, database.PChainProposalBlock, innerBlk.Height(), tx, innerBlkType.Time)
+	case *blocks.BanffCommitBlock:
+		xi.addEmptyTx(&container, database.PChainCommitBlock, innerBlk.Height(), innerBlkType.Time)
+	case *blocks.BanffAbortBlock:
+		xi.addEmptyTx(&container, database.PChainAbortBlock, innerBlk.Height(), innerBlkType.Time)
+	case *blocks.BanffStandardBlock:
+		for _, tx := range innerBlkType.Txs() {
+			err = xi.addTx(&container, database.PChainStandardBlock, innerBlk.Height(), tx, innerBlkType.Time)
 			if err != nil {
 				break
 			}
@@ -103,7 +117,7 @@ func (xi *txBatchIndexer) ProcessBatch() error {
 	return xi.inOutIndexer.ProcessBatch()
 }
 
-func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database.PChainBlockType, height uint64, tx *txs.Tx) error {
+func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database.PChainBlockType, height uint64, tx *txs.Tx, blockTime uint64) error {
 	txID := tx.ID().String()
 	dbTx := &database.PChainTx{}
 	dbTx.TxID = &txID
@@ -112,6 +126,12 @@ func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database
 	dbTx.BlockHeight = height
 	dbTx.Timestamp = chain.TimestampToTime(container.Timestamp)
 	dbTx.Bytes = container.Bytes
+	if blockTime != 0 {
+		time := time.Unix(int64(blockTime), 0)
+		dbTx.BlockTime = &time
+	} else {
+		dbTx.BlockTime = nil
+	}
 
 	var err error = nil
 	switch unsignedTx := tx.Unsigned.(type) {
@@ -139,7 +159,7 @@ func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database
 	return err
 }
 
-func (xi *txBatchIndexer) addEmptyTx(container *indexer.Container, blockType database.PChainBlockType, height uint64) {
+func (xi *txBatchIndexer) addEmptyTx(container *indexer.Container, blockType database.PChainBlockType, height uint64, blockTime uint64) {
 	dbTx := &database.PChainTx{}
 	dbTx.BlockID = container.ID.String()
 	dbTx.BlockType = blockType
@@ -147,6 +167,12 @@ func (xi *txBatchIndexer) addEmptyTx(container *indexer.Container, blockType dat
 	dbTx.Timestamp = chain.TimestampToTime(container.Timestamp)
 	dbTx.Bytes = container.Bytes
 	dbTx.TxID = nil
+	if blockTime != 0 {
+		time := time.Unix(int64(blockTime), 0)
+		dbTx.BlockTime = &time
+	} else {
+		dbTx.BlockTime = nil
+	}
 
 	xi.newTxs = append(xi.newTxs, dbTx)
 }
