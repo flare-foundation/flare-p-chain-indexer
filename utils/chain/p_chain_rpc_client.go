@@ -5,12 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/ava-labs/avalanchego/api"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/formatting"
 	avaJson "github.com/ava-labs/avalanchego/utils/json"
 	"github.com/ybbus/jsonrpc/v3"
+)
+
+const (
+	RequestTimeout = 10 * time.Second
 )
 
 // Copy-paste from
@@ -45,7 +50,8 @@ func (c *AvalancheRPCClient) GetRewardUTXOs(id ids.ID) (*GetRewardUTXOsReply, er
 		Encoding: formatting.Hex,
 	}
 	reply := &GetRewardUTXOsReply{}
-	ctx := context.Background()
+	ctx, cancelCtx := context.WithTimeout(context.Background(), RequestTimeout)
+	defer cancelCtx()
 	response, err := c.client.Call(ctx, "platform.getRewardUTXOs", params)
 	if err != nil {
 		return nil, err
