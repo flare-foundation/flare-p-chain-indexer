@@ -147,6 +147,13 @@ func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainCreateChainTx, &unsignedTx.BaseTx)
 	case *txs.CreateSubnetTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainCreateSubnetTx, &unsignedTx.BaseTx)
+	case *txs.RemoveSubnetValidatorTx:
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainRemoveSubnetValidatorTx, &unsignedTx.BaseTx)
+	case *txs.TransformSubnetTx:
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainTransformSubnetTx, &unsignedTx.BaseTx)
+	// We leave out the following transaction types as they are rejected by Flare nodes
+	// - AddPermissionlessValidatorTx
+	// - AddPermissionlessDelegatorTx
 	default:
 		err = fmt.Errorf("p-chain transaction %v with type %T in block %d is not indexed", dbTx.TxID, unsignedTx, height)
 	}
