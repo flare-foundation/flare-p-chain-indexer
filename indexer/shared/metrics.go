@@ -51,6 +51,7 @@ func InitMetricsServer(cfg *config.MetricsConfig) {
 
 	r.Path("/metrics").Handler(promhttp.Handler())
 	r.Path("/health").HandlerFunc(healthHandler)
+	r.Path("/version").HandlerFunc(versionHandler)
 
 	srv := &http.Server{
 		Addr:    cfg.PrometheusAddress,
@@ -65,6 +66,14 @@ func InitMetricsServer(cfg *config.MetricsConfig) {
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	err := writeHealthResponse(w)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+}
+
+func versionHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain")
+	_, err := w.Write([]byte(ApplicationVersion))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	}

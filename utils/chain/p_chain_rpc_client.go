@@ -5,12 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/ava-labs/avalanchego/api"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/formatting"
 	avaJson "github.com/ava-labs/avalanchego/utils/json"
 	"github.com/ybbus/jsonrpc/v3"
+)
+
+const (
+	ClientRequestTimeout = 10 * time.Second
 )
 
 // Copy-paste from
@@ -44,12 +49,15 @@ func (c *AvalancheRPCClient) GetRewardUTXOs(id ids.ID) (*GetRewardUTXOsReply, er
 		TxID:     id,
 		Encoding: formatting.Hex,
 	}
-	reply := &GetRewardUTXOsReply{}
-	ctx := context.Background()
+	ctx, cancelCtx := context.WithTimeout(context.Background(), ClientRequestTimeout)
+	defer cancelCtx()
+
 	response, err := c.client.Call(ctx, "platform.getRewardUTXOs", params)
 	if err != nil {
 		return nil, err
 	}
+
+	reply := &GetRewardUTXOsReply{}
 	err = response.GetObject(reply)
 	if err != nil {
 		return nil, err
@@ -62,12 +70,15 @@ func (c *AvalancheRPCClient) GetTx(id ids.ID) (*api.GetTxReply, error) {
 		TxID:     id,
 		Encoding: formatting.Hex,
 	}
-	reply := &api.GetTxReply{}
-	ctx := context.Background()
+	ctx, cancelCtx := context.WithTimeout(context.Background(), ClientRequestTimeout)
+	defer cancelCtx()
+
 	response, err := c.client.Call(ctx, "platform.getTx", params)
 	if err != nil {
 		return nil, err
 	}
+
+	reply := &api.GetTxReply{}
 	err = response.GetObject(reply)
 	if err != nil {
 		return nil, err

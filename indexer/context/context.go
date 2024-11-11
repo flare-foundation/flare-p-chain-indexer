@@ -16,6 +16,8 @@ type IndexerContext interface {
 }
 
 type IndexerFlags struct {
+	Version bool
+
 	ConfigFileName string
 
 	// Set start epoch for voting cronjob to this value, overrides config and database value,
@@ -33,8 +35,7 @@ type indexerContext struct {
 	flags  *IndexerFlags
 }
 
-func BuildContext() (IndexerContext, error) {
-	flags := parseIndexerFlags()
+func BuildContext(flags *IndexerFlags) (IndexerContext, error) {
 	cfg, err := config.BuildConfig(flags.ConfigFileName)
 	if err != nil {
 		return nil, err
@@ -59,13 +60,15 @@ func (c *indexerContext) DB() *gorm.DB { return c.db }
 
 func (c *indexerContext) Flags() *IndexerFlags { return c.flags }
 
-func parseIndexerFlags() *IndexerFlags {
+func ParseIndexerFlags() *IndexerFlags {
 	cfgFlag := flag.String("config", globalConfig.CONFIG_FILE, "Configuration file (toml format)")
+	versionFlag := flag.Bool("version", false, "Print version information and exit")
 	resetVotingFlag := flag.Int64("reset-voting", 0, "Set start epoch for voting cronjob to this value, overrides config and database value, valid values are > 0")
 	resetMirrorFlag := flag.Int64("reset-mirroring", 0, "Set start epoch for mirroring cronjob to this value, overrides config and database value, valid values are > 0")
 	flag.Parse()
 
 	return &IndexerFlags{
+		Version:            *versionFlag,
 		ConfigFileName:     *cfgFlag,
 		ResetVotingCronjob: *resetVotingFlag,
 		ResetMirrorCronjob: *resetMirrorFlag,
