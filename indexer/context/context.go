@@ -61,8 +61,8 @@ func (c *indexerContext) DB() *gorm.DB { return c.db }
 func (c *indexerContext) Flags() *IndexerFlags { return c.flags }
 
 func ParseIndexerFlags() *IndexerFlags {
-	cfgFlag := flag.String("config", globalConfig.CONFIG_FILE, "Configuration file (toml format)")
 	versionFlag := flag.Bool("version", false, "Print version information and exit")
+	cfgFlag := flag.String("config", globalConfig.CONFIG_FILE, "Configuration file (toml format)")
 	resetVotingFlag := flag.Int64("reset-voting", 0, "Set start epoch for voting cronjob to this value, overrides config and database value, valid values are > 0")
 	resetMirrorFlag := flag.Int64("reset-mirroring", 0, "Set start epoch for mirroring cronjob to this value, overrides config and database value, valid values are > 0")
 	flag.Parse()

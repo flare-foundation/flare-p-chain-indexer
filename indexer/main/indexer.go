@@ -25,6 +25,9 @@ func main() {
 		fmt.Printf("%v\n", err)
 		return
 	}
+
+	logger.Info("Starting Flare indexer application version %s", shared.ApplicationVersion)
+
 	err = migrations.Container.ExecuteAll(ctx.DB())
 	if err != nil {
 		fmt.Printf("%v\n", err)
