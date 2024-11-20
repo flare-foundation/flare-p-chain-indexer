@@ -27,7 +27,7 @@ func ParsePChainBlock(blockBytes []byte) (blocks.Block, error) {
 		}
 	} else {
 		// try to parse as as a "pre-fork" block
-		innerBlk, err = blocks.Parse(blocks.Codec, blockBytes)
+		innerBlk, err = blocks.Parse(blocks.GenesisCodec, blockBytes)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to parse block")
 		}

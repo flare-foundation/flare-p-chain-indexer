@@ -141,8 +141,6 @@ func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database
 		err = xi.updateExportTx(dbTx, unsignedTx)
 	case *txs.AdvanceTimeTx:
 		xi.updateAdvanceTimeTx(dbTx, unsignedTx)
-	case *txs.AddSubnetValidatorTx:
-		err = xi.updateGeneralBaseTx(dbTx, database.PChainAddSubnetValidatorTx, &unsignedTx.BaseTx)
 	case *txs.CreateChainTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainCreateChainTx, &unsignedTx.BaseTx)
 	case *txs.CreateSubnetTx:
@@ -152,6 +150,7 @@ func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database
 	case *txs.TransformSubnetTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainTransformSubnetTx, &unsignedTx.BaseTx)
 	// We leave out the following transaction types as they are rejected by Flare nodes
+	// - AddSubnetValidatorTx
 	// - AddPermissionlessValidatorTx
 	// - AddPermissionlessDelegatorTx
 	default:
