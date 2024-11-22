@@ -14,7 +14,6 @@ import (
 	"github.com/ava-labs/avalanchego/vms/platformvm/blocks"
 	"github.com/ava-labs/avalanchego/vms/platformvm/fx"
 	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
-	"github.com/ava-labs/avalanchego/vms/proposervm/block"
 	"gorm.io/gorm"
 )
 
@@ -69,11 +68,7 @@ func (xi *txBatchIndexer) Reset(containerLen int) {
 }
 
 func (xi *txBatchIndexer) AddContainer(index uint64, container indexer.Container) error {
-	blk, err := block.Parse(container.Bytes)
-	if err != nil {
-		return err
-	}
-	innerBlk, err := blocks.Parse(blocks.GenesisCodec, blk.Block())
+	innerBlk, err := chain.ParsePChainBlock(container.Bytes)
 	if err != nil {
 		return err
 	}
@@ -81,14 +76,29 @@ func (xi *txBatchIndexer) AddContainer(index uint64, container indexer.Container
 	switch innerBlkType := innerBlk.(type) {
 	case *blocks.ApricotProposalBlock:
 		tx := innerBlkType.Tx
-		err = xi.addTx(&container, database.PChainProposalBlock, innerBlk.Height(), tx)
+		err = xi.addTx(&container, database.PChainProposalBlock, innerBlk.Height(), 0, tx)
 	case *blocks.ApricotCommitBlock:
-		xi.addEmptyTx(&container, database.PChainCommitBlock, innerBlk.Height())
+		xi.addEmptyTx(&container, database.PChainCommitBlock, innerBlk.Height(), 0)
 	case *blocks.ApricotAbortBlock:
-		xi.addEmptyTx(&container, database.PChainAbortBlock, innerBlk.Height())
+		xi.addEmptyTx(&container, database.PChainAbortBlock, innerBlk.Height(), 0)
 	case *blocks.ApricotStandardBlock:
 		for _, tx := range innerBlkType.Txs() {
-			err = xi.addTx(&container, database.PChainStandardBlock, innerBlk.Height(), tx)
+			err = xi.addTx(&container, database.PChainStandardBlock, innerBlk.Height(), 0, tx)
+			if err != nil {
+				break
+			}
+		}
+	// Banff blocks were introduced in Avalanche 1.9.0
+	case *blocks.BanffProposalBlock:
+		tx := innerBlkType.Tx
+		err = xi.addTx(&container, database.PChainProposalBlock, innerBlk.Height(), innerBlkType.Time, tx)
+	case *blocks.BanffCommitBlock:
+		xi.addEmptyTx(&container, database.PChainCommitBlock, innerBlk.Height(), innerBlkType.Time)
+	case *blocks.BanffAbortBlock:
+		xi.addEmptyTx(&container, database.PChainAbortBlock, innerBlk.Height(), innerBlkType.Time)
+	case *blocks.BanffStandardBlock:
+		for _, tx := range innerBlkType.Txs() {
+			err = xi.addTx(&container, database.PChainStandardBlock, innerBlk.Height(), innerBlkType.Time, tx)
 			if err != nil {
 				break
 			}
@@ -103,7 +113,7 @@ func (xi *txBatchIndexer) ProcessBatch() error {
 	return xi.inOutIndexer.ProcessBatch()
 }
 
-func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database.PChainBlockType, height uint64, tx *txs.Tx) error {
+func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database.PChainBlockType, height uint64, blockTime uint64, tx *txs.Tx) error {
 	txID := tx.ID().String()
 	dbTx := &database.PChainTx{}
 	dbTx.TxID = &txID
@@ -112,6 +122,10 @@ func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database
 	dbTx.BlockHeight = height
 	dbTx.Timestamp = chain.TimestampToTime(container.Timestamp)
 	dbTx.Bytes = container.Bytes
+	if blockTime != 0 {
+		time := time.Unix(int64(blockTime), 0)
+		dbTx.BlockTime = &time
+	}
 
 	var err error = nil
 	switch unsignedTx := tx.Unsigned.(type) {
@@ -127,19 +141,25 @@ func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database
 		err = xi.updateExportTx(dbTx, unsignedTx)
 	case *txs.AdvanceTimeTx:
 		xi.updateAdvanceTimeTx(dbTx, unsignedTx)
-	case *txs.AddSubnetValidatorTx:
-		err = xi.updateGeneralBaseTx(dbTx, database.PChainAddSubnetValidatorTx, &unsignedTx.BaseTx)
 	case *txs.CreateChainTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainCreateChainTx, &unsignedTx.BaseTx)
 	case *txs.CreateSubnetTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainCreateSubnetTx, &unsignedTx.BaseTx)
+	case *txs.RemoveSubnetValidatorTx:
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainRemoveSubnetValidatorTx, &unsignedTx.BaseTx)
+	case *txs.TransformSubnetTx:
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainTransformSubnetTx, &unsignedTx.BaseTx)
+	// We leave out the following transaction types as they are rejected by Flare nodes
+	// - AddSubnetValidatorTx
+	// - AddPermissionlessValidatorTx
+	// - AddPermissionlessDelegatorTx
 	default:
 		err = fmt.Errorf("p-chain transaction %v with type %T in block %d is not indexed", dbTx.TxID, unsignedTx, height)
 	}
 	return err
 }
 
-func (xi *txBatchIndexer) addEmptyTx(container *indexer.Container, blockType database.PChainBlockType, height uint64) {
+func (xi *txBatchIndexer) addEmptyTx(container *indexer.Container, blockType database.PChainBlockType, height uint64, blockTime uint64) {
 	dbTx := &database.PChainTx{}
 	dbTx.BlockID = container.ID.String()
 	dbTx.BlockType = blockType
@@ -147,6 +167,10 @@ func (xi *txBatchIndexer) addEmptyTx(container *indexer.Container, blockType dat
 	dbTx.Timestamp = chain.TimestampToTime(container.Timestamp)
 	dbTx.Bytes = container.Bytes
 	dbTx.TxID = nil
+	if blockTime != 0 {
+		time := time.Unix(int64(blockTime), 0)
+		dbTx.BlockTime = &time
+	}
 
 	xi.newTxs = append(xi.newTxs, dbTx)
 }

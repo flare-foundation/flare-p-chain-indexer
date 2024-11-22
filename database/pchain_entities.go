@@ -24,6 +24,7 @@ type PChainTx struct {
 	Memo          string          `gorm:"type:varchar(256)"`
 	Bytes         []byte          `gorm:"type:mediumblob"`
 	FeePercentage uint32          // Fee percentage (in case of add validator transaction)
+	BlockTime     *time.Time      `gorm:"index"` // Block time, non-null from Banff block activation on (Avalanche 1.9.0)
 }
 
 type PChainTxInput struct {

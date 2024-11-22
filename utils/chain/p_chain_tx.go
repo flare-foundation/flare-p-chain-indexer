@@ -16,18 +16,34 @@ var (
 	ErrInvalidCredentialType = errors.New("invalid credential type")
 )
 
+// If block.Parse fails, try to parse as a "pre-fork" block
+func ParsePChainBlock(blockBytes []byte) (blocks.Block, error) {
+	blk, err := block.Parse(blockBytes)
+	var innerBlk blocks.Block
+	if err == nil {
+		innerBlk, err = blocks.Parse(blocks.GenesisCodec, blk.Block())
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse inner block")
+		}
+	} else {
+		// try to parse as as a "pre-fork" block
+		innerBlk, err = blocks.Parse(blocks.GenesisCodec, blockBytes)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse block")
+		}
+	}
+	return innerBlk, nil
+}
+
 // For a given block (byte array) return a list of public keys for
 // signatures of inputs of the transaction in this block
 // Block must be of type "ApricotProposalBlock"
 func PublicKeysFromPChainBlock(blockBytes []byte) ([][]crypto.PublicKey, error) {
-	blk, err := block.Parse(blockBytes)
+	innerBlk, err := ParsePChainBlock(blockBytes)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse block")
+		return nil, err
 	}
-	innerBlk, err := blocks.Parse(blocks.GenesisCodec, blk.Block())
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse inner block")
-	}
+
 	if propBlk, ok := innerBlk.(*blocks.ApricotProposalBlock); ok {
 		return PublicKeysFromPChainTx(propBlk.Tx)
 	} else {

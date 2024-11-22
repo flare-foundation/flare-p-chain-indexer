@@ -13,11 +13,21 @@ import (
 )
 
 func main() {
-	ctx, err := context.BuildContext()
+	flags := context.ParseIndexerFlags()
+
+	if flags.Version {
+		fmt.Printf("Flare P-chain indexer version %s\n", shared.ApplicationVersion)
+		return
+	}
+
+	ctx, err := context.BuildContext(flags)
 	if err != nil {
 		fmt.Printf("%v\n", err)
 		return
 	}
+
+	logger.Info("Starting Flare indexer application version %s", shared.ApplicationVersion)
+
 	err = migrations.Container.ExecuteAll(ctx.DB())
 	if err != nil {
 		fmt.Printf("%v\n", err)
