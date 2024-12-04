@@ -331,7 +331,8 @@ func (c *mirrorCronJob) registerAddress(txID string, address string) error {
 	if tx == nil {
 		return errors.New("tx not found")
 	}
-	publicKeys, err := chain.PublicKeysFromPChainBlock(tx.Bytes)
+
+	publicKeys, err := chain.PublicKeysFromPChainBlock(txID, tx.Bytes)
 	if err != nil {
 		return err
 	}

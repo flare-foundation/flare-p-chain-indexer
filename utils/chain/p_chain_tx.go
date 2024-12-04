@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	ErrInvalidBlockType      = errors.New("invalid block type")
-	ErrInvalidCredentialType = errors.New("invalid credential type")
+	ErrInvalidBlockType        = errors.New("invalid block type")
+	ErrInvalidTransactionBlock = errors.New("transaction not found in block")
+	ErrInvalidCredentialType   = errors.New("invalid credential type")
 )
 
 // If block.Parse fails, try to parse as a "pre-fork" block
@@ -36,17 +37,31 @@ func ParsePChainBlock(blockBytes []byte) (blocks.Block, error) {
 }
 
 // For a given block (byte array) return a list of public keys for
-// signatures of inputs of the transaction in this block
-// Block must be of type "ApricotProposalBlock"
-func PublicKeysFromPChainBlock(blockBytes []byte) ([][]crypto.PublicKey, error) {
+// signatures of inputs of the transaction with txID in this block
+func PublicKeysFromPChainBlock(txID string, blockBytes []byte) ([][]crypto.PublicKey, error) {
 	innerBlk, err := ParsePChainBlock(blockBytes)
 	if err != nil {
 		return nil, err
 	}
 
-	if propBlk, ok := innerBlk.(*blocks.ApricotProposalBlock); ok {
-		return PublicKeysFromPChainTx(propBlk.Tx)
-	} else {
+	switch blk := innerBlk.(type) {
+	case *blocks.ApricotProposalBlock:
+		// We extract public keys from the add delegator and
+		// add validator which are only in proposal blocks
+		if blk.Tx.ID().String() != txID {
+			return nil, ErrInvalidTransactionBlock
+		}
+		return PublicKeysFromPChainTx(blk.Tx)
+	case *blocks.BanffStandardBlock:
+		// In Banff blocks, add delegator and add validator transactions
+		// are in standard blocks. We extract public keys from them.
+		for _, tx := range blk.Txs() {
+			if tx.ID().String() == txID {
+				return PublicKeysFromPChainTx(tx)
+			}
+		}
+		return nil, ErrInvalidTransactionBlock
+	default:
 		return nil, ErrInvalidBlockType
 	}
 }
