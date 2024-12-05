@@ -14,7 +14,7 @@ func TestPublicKeysFromProposalBlock(t *testing.T) {
 	}
 
 	address := "costwo1n5vvqn7g05sxzaes8xtvr5mx6m95q96jesrg5g"
-	addressBytes, err := parseAddress(address)
+	addressBytes, err := addressToByte20(address)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func TestPublicKeysFromStandardBlockEth(t *testing.T) {
 	}
 
 	address := "costwo1ydmq29qfjjrz767k7w3hgrhx7krthkhlw7rqk8"
-	addressBytes, err := parseAddress(address)
+	addressBytes, err := addressToByte20(address)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestPublicKeysFromStandardBlockEth(t *testing.T) {
 		t.Fatal(err)
 	}
 	if ethAddress.Hex() != "0x8ab7028638854AE968EF5174996C17D010Af4bD5" {
-		t.Fatalf("Wrong address")
+		t.Fatal("Wrong address")
 	}
 }
 
@@ -66,7 +66,7 @@ func TestPublicKeysFromStandardBlockAvalanche(t *testing.T) {
 	}
 
 	address := "costwo12jqe7uvzddwktct3cd53m3ggce5s7xlxf2zklw"
-	addressBytes, err := parseAddress(address)
+	addressBytes, err := addressToByte20(address)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,11 +81,11 @@ func TestPublicKeysFromStandardBlockAvalanche(t *testing.T) {
 		t.Fatal(err)
 	}
 	if ethAddress.Hex() != "0x9327a86e5942da03Bd397576546ABBe7eAA4bd03" {
-		t.Fatalf("Wrong address")
+		t.Fatal("Wrong address")
 	}
 }
 
-func parseAddress(addr string) ([20]byte, error) {
+func addressToByte20(addr string) ([20]byte, error) {
 	address20 := [20]byte{}
 	_, address, err := address.ParseBech32(addr)
 	if err != nil {

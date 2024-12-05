@@ -1,10 +1,11 @@
 module flare-indexer
 
-go 1.18
+go 1.21
 
 require (
 	github.com/BurntSushi/toml v1.2.1
 	github.com/ava-labs/avalanchego v1.9.7
+	github.com/ava-labs/coreth v0.11.6-rc.0
 	github.com/bradleyjkemp/cupaloy v2.3.0+incompatible
 	github.com/davidebianchi/gswagger v0.9.0
 	github.com/deckarep/golang-set/v2 v2.1.0
@@ -17,10 +18,12 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.14.0
+	github.com/rs/cors v1.8.3
 	github.com/stretchr/testify v1.8.2
 	github.com/swaggest/swgui v1.6.3
 	github.com/ybbus/jsonrpc/v3 v3.1.1
 	go.uber.org/zap v1.24.0
+	golang.org/x/exp v0.0.0-20230116083435-1de6713980de
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gorm.io/driver/mysql v1.4.5
 	gorm.io/gorm v1.25.0
@@ -28,6 +31,7 @@ require (
 
 require (
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
+	github.com/VictoriaMetrics/fastcache v1.10.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
 	github.com/btcsuite/btcd/btcutil v1.1.3 // indirect
@@ -68,13 +72,11 @@ require (
 	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/nbutton23/zxcvbn-go v0.0.0-20210217022336-fa2cb2858354 // indirect
 	github.com/perimeterx/marshmallow v1.1.4 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.39.0 // indirect
 	github.com/prometheus/procfs v0.9.0 // indirect
 	github.com/rjeczalik/notify v0.9.2 // indirect
-	github.com/rs/cors v1.8.3 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/shurcooL/httpgzip v0.0.0-20190720172056-320755c1c1b0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
@@ -94,7 +96,6 @@ require (
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
 	golang.org/x/crypto v0.7.0 // indirect
-	golang.org/x/exp v0.0.0-20230116083435-1de6713980de // indirect
 	golang.org/x/net v0.8.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.7.0 // indirect

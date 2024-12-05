@@ -10,6 +10,7 @@ import (
 	"github.com/ava-labs/avalanchego/vms/platformvm/blocks"
 	"github.com/ava-labs/avalanchego/vms/proposervm/block"
 	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
+	"github.com/ava-labs/coreth/accounts"
 	"github.com/pkg/errors"
 )
 
@@ -39,8 +40,8 @@ func ParsePChainBlock(blockBytes []byte) (blocks.Block, error) {
 	return innerBlk, nil
 }
 
-// For a given block (byte array) return a list of public keys for
-// a
+// For a given block (byte array), transaction ID, address bytes and input index, returns a public key
+// that signed the input at the provided index and address
 func PublicKeyFromPChainBlock(txID string, addrBytes [20]byte, addrIndex uint32, blockBytes []byte) (crypto.PublicKey, error) {
 	innerBlk, err := ParsePChainBlock(blockBytes)
 	if err != nil {
@@ -77,7 +78,7 @@ func PublicKeyFromPChainBlock(txID string, addrBytes [20]byte, addrIndex uint32,
 
 				// Try with eth-style signature
 				txHashStr := hex.EncodeToString(txHash)
-				txHashEth := TextHash([]byte(txHashStr))
+				txHashEth := accounts.TextHash([]byte(txHashStr))
 				return PublicKeyForAddressAndSignedHash(tx.Creds[addrIndex], addrBytes, txHashEth)
 			}
 		}
