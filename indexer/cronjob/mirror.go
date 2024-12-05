@@ -332,19 +332,18 @@ func (c *mirrorCronJob) registerAddress(txID string, address string) error {
 		return errors.New("tx not found")
 	}
 
-	publicKeys, err := chain.PublicKeysFromPChainBlock(txID, tx.Bytes)
+	addrBytes, err := chain.ParseAddress(address)
+	if err != nil {
+		return errors.Wrap(err, "chain.ParseAddress")
+	}
+
+	publicKey, err := chain.PublicKeyFromPChainBlock(txID, addrBytes, tx.InputIndex, tx.Bytes)
 	if err != nil {
 		return err
 	}
-	if tx.InputIndex >= uint32(len(publicKeys)) {
-		return errors.New("input index out of range")
-	}
-	publicKey := publicKeys[tx.InputIndex]
-	for _, k := range publicKey {
-		err := c.contracts.RegisterPublicKey(k)
-		if err != nil {
-			return errors.Wrap(err, "mirroringContract.RegisterPublicKey")
-		}
+	err = c.contracts.RegisterPublicKey(publicKey)
+	if err != nil {
+		return errors.Wrap(err, "mirroringContract.RegisterPublicKey")
 	}
 	c.registeredAddresses.Add(address)
 	logger.Info("registered address %s on address binder contract", address)
