@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ava-labs/avalanchego/utils/crypto"
+	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/pkg/errors"
 )
@@ -43,7 +43,7 @@ type mirrorContracts interface {
 		merkleProof [][32]byte,
 	) error
 	IsAddressRegistered(address string) (bool, error)
-	RegisterPublicKey(publicKey crypto.PublicKey) error
+	RegisterPublicKey(publicKey *secp256k1.PublicKey) error
 	EpochConfig() (time.Time, time.Duration, error)
 }
 

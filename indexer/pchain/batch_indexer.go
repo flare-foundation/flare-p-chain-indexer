@@ -135,6 +135,8 @@ func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database
 		err = xi.updateAddValidatorTx(dbTx, unsignedTx)
 	case *txs.AddDelegatorTx:
 		err = xi.updateAddDelegatorTx(dbTx, unsignedTx)
+	// case *txs.AddPermissionlessDelegatorTx:
+	// 	err = xi.updateAddDelegatorTx(dbTx, &unsignedTx)
 	case *txs.ImportTx:
 		err = xi.updateImportTx(dbTx, unsignedTx)
 	case *txs.ExportTx:
