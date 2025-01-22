@@ -312,7 +312,7 @@ func (xi *txBatchIndexer) updateAddStakerTx(
 		return err
 	}
 	if publicKey != nil {
-		pkString := hex.EncodeToString(publicKey.Serialize())
+		pkString := hex.EncodeToString(publicKey.Compress())
 		dbTx.SignerPublicKey = &pkString
 	}
 

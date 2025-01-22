@@ -7,7 +7,7 @@ import (
 // Table with indexed data for a P-chain transaction
 type PChainTx struct {
 	BaseEntity
-	Type                   PChainTxType    `gorm:"type:varchar(20);index"`    // Transaction type
+	Type                   PChainTxType    `gorm:"type:varchar(40);index"`    // Transaction type
 	TxID                   *string         `gorm:"type:varchar(50);unique"`   // Transaction ID
 	BlockID                string          `gorm:"type:varchar(50);not null"` // Block ID
 	BlockType              PChainBlockType `gorm:"type:varchar(20)"`          // Block type (proposal, accepted, rejected, etc.)
