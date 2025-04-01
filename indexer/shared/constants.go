@@ -1,5 +1,5 @@
 package shared
 
 const (
-	ApplicationVersion = "2.0.2"
+	ApplicationVersion = "2.1.0"
 )
