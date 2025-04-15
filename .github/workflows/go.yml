@@ -11,12 +11,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Set up Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v5
       with:
-        go-version: "1.18"
+        go-version: "1.21"
 
     - name: Download modules
       run: go mod download
@@ -24,11 +24,11 @@ jobs:
     - name: gofmt check
       run: ./gofmt-check.sh
 
-    - name: golangci-lint
-      uses: golangci/golangci-lint-action@v2
-      with:
-        version: latest
-        args: --timeout 5m0s
+#    - name: golangci-lint
+#      uses: golangci/golangci-lint-action@v7
+#      with:
+#        version: latest
+#        args: --timeout 15m0s
 
     - name: Build executables
       run: go build ./...

@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/ava-labs/avalanchego/utils/crypto"
+	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
 	"github.com/ava-labs/avalanchego/utils/hashing"
 	"github.com/ava-labs/avalanchego/vms/components/verify"
 	"github.com/ava-labs/avalanchego/vms/platformvm/blocks"
@@ -42,7 +42,7 @@ func ParsePChainBlock(blockBytes []byte) (blocks.Block, error) {
 
 // For a given block (byte array), transaction ID, address bytes and input index, returns a public key
 // that signed the input at the provided index and address
-func PublicKeyFromPChainBlock(txID string, addrBytes [20]byte, addrIndex uint32, blockBytes []byte) (crypto.PublicKey, error) {
+func PublicKeyFromPChainBlock(txID string, addrBytes [20]byte, addrIndex uint32, blockBytes []byte) (*secp256k1.PublicKey, error) {
 	innerBlk, err := ParsePChainBlock(blockBytes)
 	if err != nil {
 		return nil, err
@@ -90,8 +90,8 @@ func PublicKeyFromPChainBlock(txID string, addrBytes [20]byte, addrIndex uint32,
 
 // For a given P-chain transaction hash return a public key for
 // a signature of a transaction hash that matches the provided address
-func PublicKeyForAddressAndSignedHash(cred verify.Verifiable, address [20]byte, signedTxHash []byte) (crypto.PublicKey, error) {
-	factory := crypto.FactorySECP256K1R{}
+func PublicKeyForAddressAndSignedHash(cred verify.Verifiable, address [20]byte, signedTxHash []byte) (*secp256k1.PublicKey, error) {
+	factory := secp256k1.Factory{}
 	if secpCred, ok := cred.(*secp256k1fx.Credential); !ok {
 		return nil, ErrInvalidCredentialType
 	} else {

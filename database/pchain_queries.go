@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"golang.org/x/exp/slices"
 	"gorm.io/gorm"
 )
 
@@ -43,7 +44,7 @@ func CreatePChainEntities(db *gorm.DB, txs []*PChainTx, ins []*PChainTxInput, ou
 // - if nodeID is not empty, only returns transactions where the given node ID is the validator node ID
 func FetchPChainStakingTransactions(
 	db *gorm.DB,
-	txType PChainTxType,
+	txTypes []PChainTxType,
 	nodeID string,
 	address string,
 	time time.Time,
@@ -52,8 +53,10 @@ func FetchPChainStakingTransactions(
 ) ([]string, error) {
 	var validatorTxs []PChainTx
 
-	if txType != PChainAddValidatorTx && txType != PChainAddDelegatorTx {
-		return nil, errInvalidTransactionType
+	for _, txType := range txTypes {
+		if !slices.Contains(PChainStakingTransactions[:], txType) {
+			return nil, errInvalidTransactionType
+		}
 	}
 	if limit <= 0 {
 		limit = 100
@@ -62,7 +65,7 @@ func FetchPChainStakingTransactions(
 		offset = 0
 	}
 
-	query := db.Where(&PChainTx{Type: txType})
+	query := db.Where("type IN ?", txTypes)
 	if len(nodeID) > 0 {
 		query = query.Where("node_id = ?", nodeID)
 	}
@@ -87,7 +90,7 @@ func FetchPChainStakingTransactions(
 func FetchPChainStakingData(
 	db *gorm.DB,
 	time time.Time,
-	txType PChainTxType,
+	txTypes []PChainTxType,
 	offset int,
 	limit int,
 ) ([]PChainTxData, error) {
@@ -104,7 +107,7 @@ func FetchPChainStakingData(
 		Table("p_chain_txes").
 		Joins("left join p_chain_tx_inputs as inputs on inputs.tx_id = p_chain_txes.tx_id").
 		Where("start_time <= ?", time).Where("? <= end_time", time).
-		Where("type = ?", txType).
+		Where("type IN ?", txTypes).
 		Group("p_chain_txes.id").
 		Order("p_chain_txes.id").Offset(offset).Limit(limit).
 		Select("p_chain_txes.*, group_concat(distinct(inputs.address)) as input_address").
@@ -238,7 +241,7 @@ func FetchPChainVotingData(db *gorm.DB, from time.Time, to time.Time) ([]PChainT
 	query := db.
 		Table("p_chain_txes").
 		Joins("left join p_chain_tx_inputs as inputs on inputs.tx_id = p_chain_txes.tx_id").
-		Where("type = ? OR type = ?", PChainAddValidatorTx, PChainAddDelegatorTx).
+		Where("type IN ?", PChainStakingTransactions).
 		Where("start_time >= ?", from).Where("start_time < ?", to).
 		Select("p_chain_txes.*, inputs.address as input_address, inputs.in_idx as input_index").
 		Scan(&data)
@@ -258,10 +261,7 @@ func GetPChainTxsForEpoch(in *GetPChainTxsForEpochInput) ([]PChainTxData, error)
 		Joins("left join p_chain_tx_inputs as inputs on inputs.tx_id = p_chain_txes.tx_id").
 		Where("p_chain_txes.start_time >= ?", in.StartTimestamp).
 		Where("p_chain_txes.start_time < ?", in.EndTimestamp).
-		Where(
-			in.DB.Where("p_chain_txes.type = ?", PChainAddDelegatorTx).
-				Or("p_chain_txes.type = ?", PChainAddValidatorTx),
-		).
+		Where("p_chain_txes.type IN ?", PChainStakingTransactions).
 		Select("p_chain_txes.*, inputs.address as input_address, inputs.in_idx as input_index").
 		Find(&txs).
 		Error
@@ -273,13 +273,15 @@ func GetPChainTxsForEpoch(in *GetPChainTxsForEpochInput) ([]PChainTxData, error)
 }
 
 // Fetches all P-chain staking transactions of type txType intersecting the given time interval
-func FetchNodeStakingIntervals(db *gorm.DB, txType PChainTxType, startTime time.Time, endTime time.Time) ([]PChainTx, error) {
-	if txType != PChainAddValidatorTx && txType != PChainAddDelegatorTx {
-		return nil, errInvalidTransactionType
+func FetchNodeStakingIntervals(db *gorm.DB, txTypes []PChainTxType, startTime time.Time, endTime time.Time) ([]PChainTx, error) {
+	for _, txType := range txTypes {
+		if !slices.Contains(PChainStakingTransactions[:], txType) {
+			return nil, errInvalidTransactionType
+		}
 	}
 
 	var txs []PChainTx
-	err := db.Where(&PChainTx{Type: txType}).
+	err := db.Where("type IN ?", txTypes).
 		Where("start_time <= ?", endTime).
 		Where("end_time >= ?", startTime).
 		Find(&txs).Error

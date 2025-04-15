@@ -158,12 +158,10 @@ func encodeTreeItem(tx *database.PChainTxData) ([]byte, error) {
 
 func GetTxType(txType database.PChainTxType) (uint8, error) {
 	switch txType {
-	case database.PChainAddValidatorTx:
+	case database.PChainAddValidatorTx, database.PChainAddPermissionlessValidatorTx:
 		return 0, nil
-
-	case database.PChainAddDelegatorTx:
+	case database.PChainAddDelegatorTx, database.PChainAddPermissionlessDelegatorTx:
 		return 1, nil
-
 	default:
 		return 0, errors.New("invalid tx type")
 	}
