@@ -30,6 +30,8 @@ const (
 	PChainUnknownTx                    PChainTxType = "UNKNOWN_TX"
 )
 
+var PChainStakingTransactions = [...]PChainTxType{PChainAddValidatorTx, PChainAddDelegatorTx, PChainAddPermissionlessValidatorTx, PChainAddPermissionlessDelegatorTx}
+
 type PChainBlockType string
 
 const (

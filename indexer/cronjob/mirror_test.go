@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
-	"github.com/ava-labs/avalanchego/utils/crypto"
+	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
 	"github.com/bradleyjkemp/cupaloy"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/common"
@@ -327,7 +327,7 @@ func (c testContracts) IsAddressRegistered(address string) (bool, error) {
 	return true, nil
 }
 
-func (c testContracts) RegisterPublicKey(publicKey crypto.PublicKey) error {
+func (c testContracts) RegisterPublicKey(publicKey *secp256k1.PublicKey) error {
 	return nil
 }
 

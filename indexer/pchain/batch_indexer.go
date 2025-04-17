@@ -1,6 +1,7 @@
 package pchain
 
 import (
+	"encoding/hex"
 	"flare-indexer/database"
 	"flare-indexer/indexer/context"
 	"flare-indexer/indexer/shared"
@@ -12,7 +13,6 @@ import (
 	"github.com/ava-labs/avalanchego/indexer"
 	"github.com/ava-labs/avalanchego/vms/components/avax"
 	"github.com/ava-labs/avalanchego/vms/platformvm/blocks"
-	"github.com/ava-labs/avalanchego/vms/platformvm/fx"
 	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
 	"gorm.io/gorm"
 )
@@ -133,8 +133,12 @@ func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database
 		err = xi.updateRewardValidatorTx(dbTx, unsignedTx)
 	case *txs.AddValidatorTx:
 		err = xi.updateAddValidatorTx(dbTx, unsignedTx)
+	case *txs.AddPermissionlessValidatorTx:
+		err = xi.updateAddPermissionlessValidatorTx(dbTx, unsignedTx)
 	case *txs.AddDelegatorTx:
 		err = xi.updateAddDelegatorTx(dbTx, unsignedTx)
+	case *txs.AddPermissionlessDelegatorTx:
+		err = xi.updateAddPermissionlessDelegatorTx(dbTx, unsignedTx)
 	case *txs.ImportTx:
 		err = xi.updateImportTx(dbTx, unsignedTx)
 	case *txs.ExportTx:
@@ -151,8 +155,6 @@ func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainTransformSubnetTx, &unsignedTx.BaseTx)
 	// We leave out the following transaction types as they are rejected by Flare nodes
 	// - AddSubnetValidatorTx
-	// - AddPermissionlessValidatorTx
-	// - AddPermissionlessDelegatorTx
 	default:
 		err = fmt.Errorf("p-chain transaction %v with type %T in block %d is not indexed", dbTx.TxID, unsignedTx, height)
 	}
@@ -190,13 +192,22 @@ func (xi *txBatchIndexer) updateRewardValidatorTx(dbTx *database.PChainTx, tx *t
 
 func (xi *txBatchIndexer) updateAddValidatorTx(dbTx *database.PChainTx, tx *txs.AddValidatorTx) error {
 	dbTx.Type = database.PChainAddValidatorTx
-	dbTx.FeePercentage = tx.DelegationShares
-	return xi.updateAddStakerTx(dbTx, tx, tx.Ins, tx.RewardsOwner)
+	return xi.updateValidatorTx(dbTx, tx, tx.Ins)
+}
+
+func (xi *txBatchIndexer) updateAddPermissionlessValidatorTx(dbTx *database.PChainTx, tx *txs.AddPermissionlessValidatorTx) error {
+	dbTx.Type = database.PChainAddPermissionlessValidatorTx
+	return xi.updateValidatorTx(dbTx, tx, tx.Ins)
 }
 
 func (xi *txBatchIndexer) updateAddDelegatorTx(dbTx *database.PChainTx, tx *txs.AddDelegatorTx) error {
 	dbTx.Type = database.PChainAddDelegatorTx
-	return xi.updateAddStakerTx(dbTx, tx, tx.Ins, tx.DelegationRewardsOwner)
+	return xi.updateDelegatorTx(dbTx, tx, tx.Ins)
+}
+
+func (xi *txBatchIndexer) updateAddPermissionlessDelegatorTx(dbTx *database.PChainTx, tx *txs.AddPermissionlessDelegatorTx) error {
+	dbTx.Type = database.PChainAddPermissionlessDelegatorTx
+	return xi.updateDelegatorTx(dbTx, tx, tx.Ins)
 }
 
 func (xi *txBatchIndexer) updateImportTx(dbTx *database.PChainTx, tx *txs.ImportTx) error {
@@ -246,12 +257,47 @@ func (xi *txBatchIndexer) PersistEntities(db *gorm.DB) error {
 	return database.CreatePChainEntities(db, txs, ins, outs)
 }
 
-// Common code for AddDelegatorTx and AddValidatorTx
+// Common code for addValidatorTx and addPermissionlessValidatorTx (ValidatorTx interface)
+func (xi *txBatchIndexer) updateValidatorTx(
+	dbTx *database.PChainTx,
+	tx txs.ValidatorTx,
+	txIns []*avax.TransferableInput,
+) error {
+	ownerAddress, err := shared.RewardsOwnerAddress(tx.ValidationRewardsOwner())
+	if err != nil {
+		return err
+	}
+	dbTx.RewardsOwner = ownerAddress
+
+	ownerAddress, err = shared.RewardsOwnerAddress(tx.DelegationRewardsOwner())
+	if err != nil {
+		return err
+	}
+	dbTx.DelegationRewardsOwner = ownerAddress
+
+	dbTx.FeePercentage = tx.Shares()
+	return xi.updateAddStakerTx(dbTx, tx, txIns)
+}
+
+// Common code for AddDelegatorTx and AddPermissionlessDelegatorTx (DelegatorTx interface)
+func (xi *txBatchIndexer) updateDelegatorTx(
+	dbTx *database.PChainTx,
+	tx txs.DelegatorTx,
+	txIns []*avax.TransferableInput,
+) error {
+	ownerAddress, err := shared.RewardsOwnerAddress(tx.RewardsOwner())
+	if err != nil {
+		return err
+	}
+	dbTx.RewardsOwner = ownerAddress
+	return xi.updateAddStakerTx(dbTx, tx, txIns)
+}
+
+// Common code for Add[Permissionless]DelegatorTx and Add[Permissionless]ValidatorTx
 func (xi *txBatchIndexer) updateAddStakerTx(
 	dbTx *database.PChainTx,
 	tx txs.PermissionlessStaker,
 	txIns []*avax.TransferableInput,
-	rewardsOwner fx.Owner,
 ) error {
 	startTime := tx.StartTime()
 	endTime := tx.EndTime()
@@ -259,12 +305,16 @@ func (xi *txBatchIndexer) updateAddStakerTx(
 	dbTx.StartTime = &startTime
 	dbTx.EndTime = &endTime
 	dbTx.Weight = tx.Weight()
+	dbTx.SubnetID = tx.SubnetID().String()
 
-	ownerAddress, err := shared.RewardsOwnerAddress(rewardsOwner)
+	publicKey, _, err := tx.PublicKey()
 	if err != nil {
 		return err
 	}
-	dbTx.RewardsOwner = ownerAddress
+	if publicKey != nil {
+		pkString := hex.EncodeToString(publicKey.Compress())
+		dbTx.SignerPublicKey = &pkString
+	}
 
 	outs, err := getAddStakerTxOutputs(*dbTx.TxID, tx)
 	if err != nil {

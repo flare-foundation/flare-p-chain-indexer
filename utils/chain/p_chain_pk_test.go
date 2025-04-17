@@ -24,10 +24,7 @@ func TestPublicKeysFromProposalBlock(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ethAddress, err := PublicKeyToEthAddress(pk)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ethAddress := PublicKeyToEthAddress(pk)
 	if ethAddress.Hex() != "0x91401C111C3adD819e73bc8C109A2c9e5BF502d9" {
 		t.Fatal("Wrong address")
 	}
@@ -50,10 +47,7 @@ func TestPublicKeysFromStandardBlockEth(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ethAddress, err := PublicKeyToEthAddress(pk)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ethAddress := PublicKeyToEthAddress(pk)
 	if ethAddress.Hex() != "0x8ab7028638854AE968EF5174996C17D010Af4bD5" {
 		t.Fatal("Wrong address")
 	}
@@ -76,10 +70,7 @@ func TestPublicKeysFromStandardBlockAvalanche(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ethAddress, err := PublicKeyToEthAddress(pk)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ethAddress := PublicKeyToEthAddress(pk)
 	if ethAddress.Hex() != "0x9327a86e5942da03Bd397576546ABBe7eAA4bd03" {
 		t.Fatal("Wrong address")
 	}

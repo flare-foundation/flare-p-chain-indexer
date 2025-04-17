@@ -43,9 +43,9 @@ func newStakerRouteHandlers(ctx context.ServicesContext) *stakerRouteHandlers {
 	}
 }
 
-func (rh *stakerRouteHandlers) listStakingTransactions(txType database.PChainTxType) utils.RouteHandler {
+func (rh *stakerRouteHandlers) listStakingTransactions(txTypes ...database.PChainTxType) utils.RouteHandler {
 	handler := func(request GetStakerTxRequest) (TxIDsResponse, *utils.ErrorHandler) {
-		txIDs, err := database.FetchPChainStakingTransactions(rh.db, txType, request.NodeID,
+		txIDs, err := database.FetchPChainStakingTransactions(rh.db, txTypes, request.NodeID,
 			request.Address, request.Time, request.Offset, request.Limit)
 		if err != nil {
 			return TxIDsResponse{}, utils.InternalServerErrorHandler(err)
@@ -55,9 +55,9 @@ func (rh *stakerRouteHandlers) listStakingTransactions(txType database.PChainTxT
 	return utils.NewRouteHandler(handler, http.MethodPost, GetStakerTxRequest{}, TxIDsResponse{})
 }
 
-func (rh *stakerRouteHandlers) listStakers(txType database.PChainTxType) utils.RouteHandler {
+func (rh *stakerRouteHandlers) listStakers(txTypes ...database.PChainTxType) utils.RouteHandler {
 	handler := func(request GetStakerRequest) ([]GetStakerResponse, *utils.ErrorHandler) {
-		stakerTxData, err := database.FetchPChainStakingData(rh.db, request.Time, txType, request.Offset, request.Limit)
+		stakerTxData, err := database.FetchPChainStakingData(rh.db, request.Time, txTypes, request.Offset, request.Limit)
 		if err != nil {
 			return nil, utils.InternalServerErrorHandler(err)
 		}
@@ -82,10 +82,14 @@ func AddStakerRoutes(router utils.Router, ctx context.ServicesContext) {
 	vr := newStakerRouteHandlers(ctx)
 
 	validatorSubrouter := router.WithPrefix("/validators", "Staking")
-	validatorSubrouter.AddRoute("/transactions", vr.listStakingTransactions(database.PChainAddValidatorTx))
-	validatorSubrouter.AddRoute("/list", vr.listStakers(database.PChainAddValidatorTx))
+	validatorSubrouter.AddRoute("/transactions",
+		vr.listStakingTransactions(database.PChainAddValidatorTx, database.PChainAddPermissionlessValidatorTx))
+	validatorSubrouter.AddRoute("/list",
+		vr.listStakers(database.PChainAddValidatorTx, database.PChainAddPermissionlessValidatorTx))
 
 	delegatorSubrouter := router.WithPrefix("/delegators", "Staking")
-	delegatorSubrouter.AddRoute("/transactions", vr.listStakingTransactions(database.PChainAddDelegatorTx))
-	delegatorSubrouter.AddRoute("/list", vr.listStakers(database.PChainAddDelegatorTx))
+	delegatorSubrouter.AddRoute("/transactions",
+		vr.listStakingTransactions(database.PChainAddDelegatorTx, database.PChainAddPermissionlessDelegatorTx))
+	delegatorSubrouter.AddRoute("/list",
+		vr.listStakers(database.PChainAddDelegatorTx, database.PChainAddPermissionlessDelegatorTx))
 }

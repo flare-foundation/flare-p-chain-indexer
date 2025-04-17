@@ -11,6 +11,7 @@ import (
 	"net/http"
 
 	"github.com/ava-labs/avalanchego/ids"
+	"golang.org/x/exp/slices"
 	"gorm.io/gorm"
 )
 
@@ -155,11 +156,11 @@ func (qr *queryRouteHandlers) executePChainStakingRequest(
 		response.Status = api.VerificationStatusNonExistentBlock
 	case tx == nil:
 		response.Status = api.VerificationStatusNonExistentTransaction
-	case tx.Type != database.PChainAddValidatorTx && tx.Type != database.PChainAddDelegatorTx:
+	case !slices.Contains(database.PChainStakingTransactions[:], tx.Type):
 		response.Status = api.VerificationStatusNonExistentTransaction
 	default:
 		var txType byte
-		if tx.Type == database.PChainAddValidatorTx {
+		if tx.Type == database.PChainAddValidatorTx || tx.Type == database.PChainAddPermissionlessValidatorTx {
 			txType = 0
 		} else {
 			txType = 1

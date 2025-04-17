@@ -301,7 +301,11 @@ type nodeStakingInterval struct {
 // Return the staking intervals for each node, sorted by nodeID, note that it is possible
 // that a node has multiple intervals
 func fetchNodeStakingIntervals(db *gorm.DB, start time.Time, end time.Time) ([]nodeStakingInterval, error) {
-	txs, err := database.FetchNodeStakingIntervals(db, database.PChainAddValidatorTx, start, end)
+	txs, err := database.FetchNodeStakingIntervals(
+		db,
+		[]database.PChainTxType{database.PChainAddValidatorTx, database.PChainAddPermissionlessValidatorTx},
+		start, end,
+	)
 	if err != nil {
 		return nil, err
 	}

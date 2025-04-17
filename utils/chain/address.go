@@ -4,7 +4,7 @@ import (
 	"flare-indexer/config"
 	"fmt"
 
-	"github.com/ava-labs/avalanchego/utils/crypto"
+	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
 	"github.com/ava-labs/avalanchego/utils/formatting/address"
 	"github.com/ethereum/go-ethereum/common"
 	ethCrypto "github.com/ethereum/go-ethereum/crypto"
@@ -43,9 +43,6 @@ func ParseAddress(addr string) ([20]byte, error) {
 	return address20, nil
 }
 
-func PublicKeyToEthAddress(publicKey crypto.PublicKey) (common.Address, error) {
-	if pk, ok := publicKey.(*crypto.PublicKeySECP256K1R); ok {
-		return ethCrypto.PubkeyToAddress(*pk.ToECDSA()), nil
-	}
-	return common.Address{}, ErrInvalidPublicKeyType
+func PublicKeyToEthAddress(publicKey *secp256k1.PublicKey) common.Address {
+	return ethCrypto.PubkeyToAddress(*publicKey.ToECDSA())
 }
