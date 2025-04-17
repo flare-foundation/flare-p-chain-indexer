@@ -33,6 +33,7 @@ jobs:
       uses: docker/build-push-action@v3.2.0
       with:
         context: .
+        platforms: linux/amd64,linux/arm64
         push: true
         file: dockerfile.indexer
         tags: ghcr.io/${{ github.repository }}/indexer:${{ env.IMAGE_TAG }}
@@ -40,6 +41,7 @@ jobs:
       uses: docker/build-push-action@v3.2.0
       with:
         context: .
+        platforms: linux/amd64,linux/arm64
         push: true
         file: dockerfile.services
         tags: ghcr.io/${{ github.repository }}/services:${{ env.IMAGE_TAG }}
