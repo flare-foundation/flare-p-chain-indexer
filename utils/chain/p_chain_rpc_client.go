@@ -91,9 +91,9 @@ func (c *AvalancheRPCClient) GetTx(id ids.ID) (*api.GetTxReply, error) {
 //
 
 type RPCRecording struct {
-	Id    string   `json:"id"`
-	UTXOs []string `json:"utxos"`
-	Tx    string   `json:"tx"`
+	Id    string          `json:"id"`
+	UTXOs []string        `json:"utxos"`
+	Tx    json.RawMessage `json:"tx"`
 }
 
 func (r *RPCRecording) toGetRewardUTXOsReply() *GetRewardUTXOsReply {

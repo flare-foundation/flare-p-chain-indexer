@@ -89,7 +89,7 @@ func (iu *pChainInputUpdater) updateFromChain(
 	return inputs.UpdateWithOutputs(fetchedOuts), nil
 }
 
-func (iu *pChainInputUpdater) getAddStakerTxAndRewardTxOutputs(txId string, tx txs.PermissionlessStaker) ([]shared.Output, error) {
+func (iu *pChainInputUpdater) getAddStakerTxAndRewardTxOutputs(txId string, tx StakerTx) ([]shared.Output, error) {
 	outs, err := getAddStakerTxOutputs(txId, tx)
 	if err != nil {
 		return nil, err

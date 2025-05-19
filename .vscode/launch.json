@@ -57,6 +57,15 @@
             "program": "${workspaceFolder}/indexer/main/indexer.go",
             "args": ["--config", "${workspaceFolder}/config.flare.toml"],
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Launch Services (mainnet)",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/services/main/services.go",
+            "args": ["--config", "${workspaceFolder}/config.flare_services.toml"],
+            "cwd": "${workspaceFolder}"
         }
     ]
 }
