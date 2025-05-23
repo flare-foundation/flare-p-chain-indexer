@@ -348,7 +348,7 @@ func (xi *txBatchIndexer) isDurango(blockTime *time.Time) bool {
 	return blockTime != nil && !blockTime.Before(xi.durangoTime)
 }
 
-func getAddStakerTxOutputs(txID string, tx PermissionlessStakerTx) ([]shared.Output, error) {
+func getAddStakerTxOutputs(txID string, tx StakerTx) ([]shared.Output, error) {
 	outs, err := shared.OutputsFromTxOuts(txID, tx.Outputs(), 0, PChainDefaultInputOutputCreator)
 	if err != nil {
 		return nil, err
