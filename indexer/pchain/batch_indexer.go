@@ -36,6 +36,8 @@ type txBatchIndexer struct {
 	inOutIndexer    *shared.InputOutputIndexer
 	newTxs          []*database.PChainTx
 	dataTransformer *PChainDataTransformer
+
+	durangoTime time.Time
 }
 
 func NewPChainDataTransformer(txTransformer func(tx *database.PChainTx) *database.PChainTx) *PChainDataTransformer {
@@ -50,6 +52,11 @@ func NewPChainBatchIndexer(
 	rpcClient chain.RPCClient,
 	dataTransformer *PChainDataTransformer,
 ) *txBatchIndexer {
+	var durangoTime time.Time
+	if time, ok := shared.DurangoTimes[ctx.Config().Chain.ChainAddressHRP]; ok {
+		durangoTime = time
+	}
+
 	updater := newPChainInputUpdater(ctx, rpcClient)
 	return &txBatchIndexer{
 		db:        ctx.DB(),
@@ -59,6 +66,8 @@ func NewPChainBatchIndexer(
 		inOutIndexer:    shared.NewInputOutputIndexer(updater),
 		newTxs:          make([]*database.PChainTx, 0),
 		dataTransformer: dataTransformer,
+
+		durangoTime: durangoTime,
 	}
 }
 
@@ -296,12 +305,18 @@ func (xi *txBatchIndexer) updateDelegatorTx(
 }
 
 // Common code for Add[Permissionless]DelegatorTx and Add[Permissionless]ValidatorTx
+// We assume that dbTx.blockTime is set to the block time before calling this function
 func (xi *txBatchIndexer) updateAddStakerTx(
 	dbTx *database.PChainTx,
 	tx StakerTx,
 	txIns []*avax.TransferableInput,
 ) error {
-	startTime := tx.StartTime()
+	var startTime time.Time
+	if xi.isDurango(dbTx.BlockTime) {
+		startTime = *dbTx.BlockTime
+	} else {
+		startTime = tx.StartTime()
+	}
 	endTime := tx.EndTime()
 	dbTx.NodeID = tx.NodeID().String()
 	dbTx.StartTime = &startTime
@@ -329,7 +344,11 @@ func (xi *txBatchIndexer) updateAddStakerTx(
 	return nil
 }
 
-func getAddStakerTxOutputs(txID string, tx StakerTx) ([]shared.Output, error) {
+func (xi *txBatchIndexer) isDurango(blockTime *time.Time) bool {
+	return blockTime != nil && !blockTime.Before(xi.durangoTime)
+}
+
+func getAddStakerTxOutputs(txID string, tx PermissionlessStakerTx) ([]shared.Output, error) {
 	outs, err := shared.OutputsFromTxOuts(txID, tx.Outputs(), 0, PChainDefaultInputOutputCreator)
 	if err != nil {
 		return nil, err
