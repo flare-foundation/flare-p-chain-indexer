@@ -22,6 +22,8 @@ var (
 		PChainTx{},
 		PChainTxInput{},
 		PChainTxOutput{},
+		PChainTxDetails{},
+		PChainOwner{},
 		UptimeCronjob{},
 		UptimeAggregation{},
 	}

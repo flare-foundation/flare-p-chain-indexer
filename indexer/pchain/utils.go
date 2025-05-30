@@ -1,11 +1,13 @@
 package pchain
 
 import (
+	"encoding/json"
 	"flare-indexer/utils/chain"
+	"strings"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/formatting"
-	"github.com/ava-labs/avalanchego/utils/json"
+	avaJson "github.com/ava-labs/avalanchego/utils/json"
 	"github.com/ava-labs/avalanchego/vms/components/avax"
 	"github.com/ava-labs/avalanchego/vms/platformvm/genesis"
 	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
@@ -29,7 +31,13 @@ func CallPChainGetTxApi(client chain.RPCClient, txID string) (*txs.Tx, error) {
 	}
 
 	// Parse from hex string
-	txData, err := formatting.Decode(formatting.Hex, string(reply.Tx))
+	txStr := string(reply.Tx)
+	if !strings.HasPrefix(txStr, "0x") {
+		// It may be json-encoded string
+		// Ignore the unmarshalling error and let Decode below to fail
+		json.Unmarshal(reply.Tx, &txStr)
+	}
+	txData, err := formatting.Decode(formatting.Hex, txStr)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +54,7 @@ func CallPChainGetTxApi(client chain.RPCClient, txID string) (*txs.Tx, error) {
 //
 // To avoid an additional dependency
 type GetRewardUTXOsReply struct {
-	NumFetched json.Uint64         `json:"numFetched"`
+	NumFetched avaJson.Uint64      `json:"numFetched"`
 	UTXOs      []string            `json:"utxos"`
 	Encoding   formatting.Encoding `json:"encoding"`
 }

@@ -8,6 +8,7 @@ import (
 	"flare-indexer/utils"
 	"flare-indexer/utils/chain"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ava-labs/avalanchego/indexer"
@@ -35,6 +36,8 @@ type txBatchIndexer struct {
 
 	inOutIndexer    *shared.InputOutputIndexer
 	newTxs          []*database.PChainTx
+	newTxDetails    []*database.PChainTxDetails
+	newOwners       []*database.PChainOwner
 	dataTransformer *PChainDataTransformer
 
 	durangoTime time.Time
@@ -73,6 +76,8 @@ func NewPChainBatchIndexer(
 
 func (xi *txBatchIndexer) Reset(containerLen int) {
 	xi.newTxs = make([]*database.PChainTx, 0, containerLen)
+	xi.newTxDetails = make([]*database.PChainTxDetails, 0)
+	xi.newOwners = make([]*database.PChainOwner, 0)
 	xi.inOutIndexer.Reset(containerLen)
 }
 
@@ -86,6 +91,9 @@ func (xi *txBatchIndexer) AddContainer(index uint64, container indexer.Container
 	case *block.ApricotProposalBlock:
 		tx := innerBlkType.Tx
 		err = xi.addTx(&container, database.PChainProposalBlock, innerBlk.Height(), 0, tx)
+	case *block.ApricotAtomicBlock:
+		tx := innerBlkType.Tx
+		err = xi.addTx(&container, database.PChainAtomicBlock, innerBlk.Height(), 0, tx)
 	case *block.ApricotCommitBlock:
 		xi.addEmptyTx(&container, database.PChainCommitBlock, innerBlk.Height(), 0)
 	case *block.ApricotAbortBlock:
@@ -155,17 +163,17 @@ func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database
 	case *txs.AdvanceTimeTx:
 		xi.updateAdvanceTimeTx(dbTx, unsignedTx)
 	case *txs.CreateChainTx:
-		err = xi.updateGeneralBaseTx(dbTx, database.PChainCreateChainTx, &unsignedTx.BaseTx)
+		err = xi.updateCreateChainTx(dbTx, unsignedTx)
 	case *txs.CreateSubnetTx:
-		err = xi.updateGeneralBaseTx(dbTx, database.PChainCreateSubnetTx, &unsignedTx.BaseTx)
+		err = xi.updateCreateSubnetTx(dbTx, unsignedTx)
 	case *txs.RemoveSubnetValidatorTx:
-		err = xi.updateGeneralBaseTx(dbTx, database.PChainRemoveSubnetValidatorTx, &unsignedTx.BaseTx)
+		err = xi.updateRemoveSubnetValidatorTx(dbTx, unsignedTx)
 	case *txs.TransformSubnetTx:
-		err = xi.updateGeneralBaseTx(dbTx, database.PChainTransformSubnetTx, &unsignedTx.BaseTx)
+		err = xi.updateTransformSubnetTx(dbTx, unsignedTx)
 	case *txs.BaseTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainBaseTx, unsignedTx)
-	// We leave out the following transaction types as they are rejected by Flare nodes
-	// - AddSubnetValidatorTx
+	case *txs.AddSubnetValidatorTx:
+		err = xi.updateSubnetValidatorTx(dbTx, unsignedTx)
 	default:
 		err = fmt.Errorf("p-chain transaction %v with type %T in block %d is not indexed", dbTx.TxID, unsignedTx, height)
 	}
@@ -248,6 +256,108 @@ func (xi *txBatchIndexer) updateGeneralBaseTx(dbTx *database.PChainTx, txType da
 	return xi.inOutIndexer.AddNewFromBaseTx(*dbTx.TxID, &baseTx.BaseTx, PChainDefaultInputOutputCreator)
 }
 
+func (xi *txBatchIndexer) updateCreateSubnetTx(dbTx *database.PChainTx, tx *txs.CreateSubnetTx) error {
+	dbTx.Type = database.PChainCreateSubnetTx
+	ownerAddresses, err := shared.OwnerAddresses(tx.Owner)
+	if err != nil {
+		return err
+	}
+	xi.updateOwners(ownerAddresses, *dbTx.TxID, database.PChainSubnetOwner)
+	xi.newTxs = append(xi.newTxs, dbTx)
+	return xi.inOutIndexer.AddNewFromBaseTx(*dbTx.TxID, &tx.BaseTx.BaseTx, PChainDefaultInputOutputCreator)
+}
+
+func (xi *txBatchIndexer) updateTransformSubnetTx(dbTx *database.PChainTx, tx *txs.TransformSubnetTx) error {
+	dbTx.Type = database.PChainTransformSubnetTx
+	dbTx.SubnetID = tx.Subnet.String()
+
+	dbTxDetails := &database.PChainTxDetails{
+		TxID:                     *dbTx.TxID,
+		AssetID:                  tx.AssetID.String(),
+		InitialSupply:            tx.InitialSupply,
+		MaximumSupply:            tx.MaximumSupply,
+		MinConsumptionRate:       tx.MinConsumptionRate,
+		MaxConsumptionRate:       tx.MaxConsumptionRate,
+		MinValidatorStake:        tx.MinValidatorStake,
+		MaxValidatorStake:        tx.MaxValidatorStake,
+		MinStakeDuration:         tx.MinStakeDuration,
+		MaxStakeDuration:         tx.MaxStakeDuration,
+		MinDelegationFee:         tx.MinDelegationFee,
+		MinDelegatorStake:        tx.MinDelegatorStake,
+		MaxValidatorWeightFactor: tx.MaxValidatorWeightFactor,
+		UptimeRequirement:        tx.UptimeRequirement,
+	}
+
+	xi.newTxs = append(xi.newTxs, dbTx)
+	xi.newTxDetails = append(xi.newTxDetails, dbTxDetails)
+	return xi.inOutIndexer.AddNewFromBaseTx(*dbTx.TxID, &tx.BaseTx.BaseTx, PChainDefaultInputOutputCreator)
+}
+
+func (xi *txBatchIndexer) updateRemoveSubnetValidatorTx(dbTx *database.PChainTx, tx *txs.RemoveSubnetValidatorTx) error {
+	dbTx.Type = database.PChainRemoveSubnetValidatorTx
+	dbTx.NodeID = tx.NodeID.String()
+	dbTx.SubnetID = tx.Subnet.String()
+	xi.newTxs = append(xi.newTxs, dbTx)
+	return xi.inOutIndexer.AddNewFromBaseTx(*dbTx.TxID, &tx.BaseTx.BaseTx, PChainDefaultInputOutputCreator)
+}
+
+func (xi *txBatchIndexer) updateCreateChainTx(dbTx *database.PChainTx, tx *txs.CreateChainTx) error {
+	dbTx.Type = database.PChainCreateChainTx
+	dbTx.SubnetID = tx.SubnetID.String()
+
+	var fxIdsBuilder strings.Builder
+	for i, fxID := range tx.FxIDs {
+		if i > 0 {
+			fxIdsBuilder.WriteString(",")
+		}
+		fxIdsBuilder.WriteString(fxID.String())
+	}
+
+	dbTxDetails := &database.PChainTxDetails{
+		TxID:      *dbTx.TxID,
+		ChainName: tx.ChainName,
+		VMID:      tx.VMID.String(),
+		FxIDs:     fxIdsBuilder.String(),
+		Genesis:   tx.GenesisData,
+	}
+
+	xi.newTxs = append(xi.newTxs, dbTx)
+	xi.newTxDetails = append(xi.newTxDetails, dbTxDetails)
+	return xi.inOutIndexer.AddNewFromBaseTx(*dbTx.TxID, &tx.BaseTx.BaseTx, PChainDefaultInputOutputCreator)
+}
+
+func (xi *txBatchIndexer) updateSubnetValidatorTx(dbTx *database.PChainTx, tx *txs.AddSubnetValidatorTx) error {
+	dbTx.Type = database.PChainAddSubnetValidatorTx
+	dbTx.SubnetID = tx.Subnet.String()
+	dbTx.NodeID = tx.NodeID().String()
+
+	var startTime time.Time
+	if xi.isDurango(dbTx.BlockTime) {
+		startTime = *dbTx.BlockTime
+	} else {
+		startTime = tx.StartTime()
+	}
+	endTime := tx.EndTime()
+
+	dbTx.StartTime = &startTime
+	dbTx.EndTime = &endTime
+	dbTx.Weight = tx.Weight()
+
+	xi.newTxs = append(xi.newTxs, dbTx)
+	return xi.inOutIndexer.AddNewFromBaseTx(*dbTx.TxID, &tx.BaseTx.BaseTx, PChainDefaultInputOutputCreator)
+}
+
+func (xi *txBatchIndexer) updateOwners(ownerAddresses []string, txID string, ownerType database.PChainOwnerType) {
+	for _, addr := range ownerAddresses {
+		owner := &database.PChainOwner{
+			TxID:    txID,
+			Address: addr,
+			Type:    ownerType,
+		}
+		xi.newOwners = append(xi.newOwners, owner)
+	}
+}
+
 // Persist all entities
 func (xi *txBatchIndexer) PersistEntities(db *gorm.DB) error {
 	ins, err := utils.CastArray[*database.PChainTxInput](xi.inOutIndexer.GetIns())
@@ -265,7 +375,8 @@ func (xi *txBatchIndexer) PersistEntities(db *gorm.DB) error {
 	} else {
 		txs = xi.newTxs
 	}
-	return database.CreatePChainEntities(db, txs, ins, outs)
+
+	return database.PersistPChainEntities(db, txs, ins, outs, xi.newTxDetails, xi.newOwners)
 }
 
 // Common code for addValidatorTx and addPermissionlessValidatorTx (ValidatorTx interface)
@@ -274,17 +385,23 @@ func (xi *txBatchIndexer) updateValidatorTx(
 	tx ValidatorTx,
 	txIns []*avax.TransferableInput,
 ) error {
-	ownerAddress, err := shared.RewardsOwnerAddress(tx.ValidationRewardsOwner())
+	ownerAddresses, err := shared.OwnerAddresses(tx.ValidationRewardsOwner())
 	if err != nil {
 		return err
 	}
-	dbTx.RewardsOwner = ownerAddress
+	if len(ownerAddresses) > 0 {
+		dbTx.RewardsOwner = ownerAddresses[0]
+	}
+	xi.updateOwners(ownerAddresses, *dbTx.TxID, database.PChainValidatorRewardsOwner)
 
-	ownerAddress, err = shared.RewardsOwnerAddress(tx.DelegationRewardsOwner())
+	ownerAddresses, err = shared.OwnerAddresses(tx.DelegationRewardsOwner())
 	if err != nil {
 		return err
 	}
-	dbTx.DelegationRewardsOwner = ownerAddress
+	if len(ownerAddresses) == 0 {
+		dbTx.DelegationRewardsOwner = ownerAddresses[0]
+	}
+	xi.updateOwners(ownerAddresses, *dbTx.TxID, database.PChainValidatorDelegationRewardsOwner)
 
 	dbTx.FeePercentage = tx.Shares()
 	return xi.updateAddStakerTx(dbTx, tx, txIns)
@@ -296,11 +413,14 @@ func (xi *txBatchIndexer) updateDelegatorTx(
 	tx DelegatorTx,
 	txIns []*avax.TransferableInput,
 ) error {
-	ownerAddress, err := shared.RewardsOwnerAddress(tx.RewardsOwner())
+	ownerAddresses, err := shared.OwnerAddresses(tx.RewardsOwner())
 	if err != nil {
 		return err
 	}
-	dbTx.RewardsOwner = ownerAddress
+	if len(ownerAddresses) > 0 {
+		dbTx.RewardsOwner = ownerAddresses[0]
+	}
+	xi.updateOwners(ownerAddresses, *dbTx.TxID, database.PChainValidatorDelegationRewardsOwner)
 	return xi.updateAddStakerTx(dbTx, tx, txIns)
 }
 

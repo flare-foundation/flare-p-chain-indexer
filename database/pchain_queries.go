@@ -19,28 +19,9 @@ func FetchPChainTxOutputs(db *gorm.DB, ids []string) ([]PChainTxOutput, error) {
 	return txs, err
 }
 
-func CreatePChainEntities(db *gorm.DB, txs []*PChainTx, ins []*PChainTxInput, outs []*PChainTxOutput) error {
-	if len(txs) > 0 { // attempt to create from an empty slice returns error
-		err := db.Create(txs).Error
-		if err != nil {
-			return err
-		}
-	}
-	if len(ins) > 0 {
-		err := db.Create(ins).Error
-		if err != nil {
-			return err
-		}
-	}
-	if len(outs) > 0 {
-		return db.Create(outs).Error
-	}
-	return nil
-}
-
 // Returns a list of transaction ids initiating a create validator transaction or a create delegation transaction
 // - if address is not empty, only returns transactions where the given address is the sender of the transaction
-// - if time is not zero, only returns transactions where the validatot time or delegation time contains the given time
+// - if time is not zero, only returns transactions where the validation time or delegation time contains the given time
 // - if nodeID is not empty, only returns transactions where the given node ID is the validator node ID
 func FetchPChainStakingTransactions(
 	db *gorm.DB,
@@ -286,4 +267,44 @@ func FetchNodeStakingIntervals(db *gorm.DB, txTypes []PChainTxType, startTime ti
 		Where("end_time >= ?", startTime).
 		Find(&txs).Error
 	return txs, err
+}
+
+func PersistPChainEntities(
+	db *gorm.DB,
+	txs []*PChainTx,
+	inputs []*PChainTxInput,
+	outputs []*PChainTxOutput,
+	details []*PChainTxDetails,
+	owners []*PChainOwner,
+) error {
+	if len(txs) > 0 { // persisting empty slice causes an error
+		if err := db.Create(&txs).Error; err != nil {
+			return fmt.Errorf("failed to persist P-chain transactions: %w", err)
+		}
+	}
+
+	if len(inputs) > 0 {
+		if err := db.Create(&inputs).Error; err != nil {
+			return fmt.Errorf("failed to persist P-chain transaction inputs: %w", err)
+		}
+	}
+
+	if len(outputs) > 0 {
+		if err := db.Create(&outputs).Error; err != nil {
+			return fmt.Errorf("failed to persist P-chain transaction outputs: %w", err)
+		}
+	}
+
+	if len(details) > 0 {
+		if err := db.Create(&details).Error; err != nil {
+			return fmt.Errorf("failed to persist P-chain transaction details: %w", err)
+		}
+	}
+
+	if len(owners) > 0 {
+		if err := db.Create(&owners).Error; err != nil {
+			return fmt.Errorf("failed to persist P-chain owners: %w", err)
+		}
+	}
+	return nil
 }

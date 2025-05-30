@@ -8,6 +8,7 @@ import (
 	"github.com/ava-labs/avalanchego/vms/components/avax"
 	"github.com/ava-labs/avalanchego/vms/components/verify"
 	"github.com/ava-labs/avalanchego/vms/platformvm/fx"
+	"github.com/ava-labs/avalanchego/vms/platformvm/stakeable"
 	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
 )
 
@@ -52,34 +53,55 @@ func OutputsFromUTXO(txID string, utxos []*avax.UTXO, creator OutputCreator) ([]
 // Update database output from out provided its type is *secp256k1fx.TransferOutput and the
 // number of addresses is 1. Error is returned if these two conditions are not met.
 func UpdateTransferableOutput(dbOut *database.TxOutput, out verify.State) error {
-	to, ok := out.(*secp256k1fx.TransferOutput)
-	if !ok {
-		return fmt.Errorf("TransferableOutput has unsupported type")
-	}
-	if len(to.Addrs) != 1 {
-		return fmt.Errorf("TransferableOutput has 0 or more than one address")
-	}
 
-	addr, err := chain.FormatAddressBytes(to.Addrs[0].Bytes())
-	if err != nil {
-		return err
+	switch out := out.(type) {
+	case *secp256k1fx.TransferOutput:
+		// if len(out.Addrs) != 1 {
+		// 	return fmt.Errorf("TransferableOutput has 0 or more than one address")
+		// }
+		if len(out.Addrs) == 0 {
+			return fmt.Errorf("TransferableOutput has no addresses")
+		}
+		addr, err := chain.FormatAddressBytes(out.Addrs[0].Bytes())
+		if err != nil {
+			return err
+		}
+		dbOut.Amount = out.Amount()
+		dbOut.Address = addr
+	case *stakeable.LockOut:
+		addresses := out.Addresses()
+		if len(addresses) != 1 {
+			return fmt.Errorf("LockOut has 0 or more than one address")
+		}
+		addr, err := chain.FormatAddressBytes(addresses[0])
+		if err != nil {
+			return fmt.Errorf("failed to format address: %w", err)
+		}
+		dbOut.Amount = out.Amount()
+		dbOut.Address = addr
+	default:
+		return fmt.Errorf("TransferableOutput has unsupported type %T", out)
 	}
-	dbOut.Amount = to.Amount()
-	dbOut.Address = addr
 	return nil
 }
 
 // Return address from Owner interface provided its type is *secp256k1fx.OutputOwners and the
 // number of addresses is 1. Error is returned if these two conditions are not met.
-func RewardsOwnerAddress(owner fx.Owner) (string, error) {
+func OwnerAddresses(owner fx.Owner) ([]string, error) {
 	oo, ok := owner.(*secp256k1fx.OutputOwners)
 	if !ok {
-		return "", fmt.Errorf("rewards owner has unsupported type")
+		return nil, fmt.Errorf("rewards owner has unsupported type")
 	}
-	if len(oo.Addrs) != 1 {
-		return "", fmt.Errorf("rewards owner has 0 or more than one address")
+
+	addresses := make([]string, len(oo.Addrs))
+	for _, addr := range oo.Addrs {
+		formattedAddr, err := chain.FormatAddressBytes(addr.Bytes())
+		if err != nil {
+			return nil, fmt.Errorf("failed to format address: %w", err)
+		}
+		addresses = append(addresses, formattedAddr)
 	}
-	return chain.FormatAddressBytes(oo.Addrs[0].Bytes())
+	return addresses, nil
 }
 
 // Create inputs to BaseTx. Note that addresses of inputs are are not set. They should be updated from

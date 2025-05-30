@@ -40,6 +40,7 @@ const (
 	PChainCommitBlock   PChainBlockType = "COMMIT_BLOCK"
 	PChainAbortBlock    PChainBlockType = "ABORT_BLOCK"
 	PChainStandardBlock PChainBlockType = "STANDARD_BLOCK"
+	PChainAtomicBlock   PChainBlockType = "ATOMIC_BLOCK"
 )
 
 type PChainOutputType string
@@ -48,6 +49,15 @@ const (
 	PChainDefaultOutput PChainOutputType = "TX"
 	PChainStakeOutput   PChainOutputType = "STAKE"
 	PChainRewardOutput  PChainOutputType = "REWARD"
+)
+
+type PChainOwnerType string
+
+const (
+	PChainValidatorRewardsOwner           PChainOwnerType = "VALIDATOR_REWARDS_OWNER"
+	PChainValidatorDelegationRewardsOwner PChainOwnerType = "VALIDATOR_D_REWARDS_OWNER"
+	PChainDelegationRewardsOwner          PChainOwnerType = "DELEGATION_REWARDS_OWNER"
+	PChainSubnetOwner                     PChainOwnerType = "SUBNET_OWNER"
 )
 
 // Misc other types

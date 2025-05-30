@@ -3,6 +3,7 @@ package shared
 import (
 	"fmt"
 
+	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/vms/components/avax"
 )
 
@@ -60,7 +61,12 @@ func (iox *InputOutputIndexer) UpdateInputs(inputs []Input) error {
 		return err
 	}
 	if notUpdated.Cardinality() > 0 {
-		return fmt.Errorf("unable to fetch transactions with ids %v", notUpdated)
+		emptyIDStr := ids.Empty.String()
+		for id := range notUpdated.Iterator().C {
+			if id != emptyIDStr {
+				return fmt.Errorf("unable to fetch transactions with id %v", id)
+			}
+		}
 	}
 	return nil
 }

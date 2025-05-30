@@ -66,6 +66,15 @@
             "program": "${workspaceFolder}/services/main/services.go",
             "args": ["--config", "${workspaceFolder}/config.flare_services.toml"],
             "cwd": "${workspaceFolder}"
-        }
+        },
+        {
+            "name": "Launch Indexer (avalanche)",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/indexer/main/indexer.go",
+            "args": ["--config", "${workspaceFolder}/config.avalanche.toml"],
+            "cwd": "${workspaceFolder}"
+        },
     ]
 }
