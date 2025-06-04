@@ -70,8 +70,11 @@ func UpdateTransferableOutput(dbOut *database.TxOutput, out verify.State) error 
 		dbOut.Address = addr
 	case *stakeable.LockOut:
 		addresses := out.Addresses()
-		if len(addresses) != 1 {
-			return fmt.Errorf("LockOut has 0 or more than one address")
+		// if len(addresses) != 1 {
+		// 	return fmt.Errorf("LockOut has 0 or more than one address")
+		// }
+		if len(addresses) == 0 {
+			return fmt.Errorf("LockOut has no addresses")
 		}
 		addr, err := chain.FormatAddressBytes(addresses[0])
 		if err != nil {
