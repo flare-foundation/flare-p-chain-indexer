@@ -154,6 +154,11 @@ func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database
 		err = xi.updateExportTx(dbTx, unsignedTx)
 	case *txs.AdvanceTimeTx:
 		xi.updateAdvanceTimeTx(dbTx, unsignedTx)
+	case *txs.BaseTx:
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainBaseTx, unsignedTx)
+
+	// We do not save specific info for the following transaction types.
+	// We may change this in the future if we need to index more data.
 	case *txs.CreateChainTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainCreateChainTx, &unsignedTx.BaseTx)
 	case *txs.CreateSubnetTx:
@@ -162,10 +167,8 @@ func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainRemoveSubnetValidatorTx, &unsignedTx.BaseTx)
 	case *txs.TransformSubnetTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainTransformSubnetTx, &unsignedTx.BaseTx)
-	case *txs.BaseTx:
-		err = xi.updateGeneralBaseTx(dbTx, database.PChainBaseTx, unsignedTx)
-	// We leave out the following transaction types as they are rejected by Flare nodes
-	// - AddSubnetValidatorTx
+	case *txs.AddSubnetValidatorTx:
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainAddSubnetValidatorTx, &unsignedTx.BaseTx)
 	default:
 		err = fmt.Errorf("p-chain transaction %v with type %T in block %d is not indexed", dbTx.TxID, unsignedTx, height)
 	}
