@@ -15,6 +15,10 @@ import (
 	"github.com/rs/cors"
 )
 
+const (
+	ServicesVersion = "2.2.0"
+)
+
 func main() {
 	ctx, err := context.BuildContext()
 	if err != nil {
@@ -27,7 +31,7 @@ func main() {
 	}
 
 	muxRouter := mux.NewRouter()
-	router := utils.NewSwaggerRouter(muxRouter, "Flare P-Chain Indexer", "0.1.1")
+	router := utils.NewSwaggerRouter(muxRouter, "Flare P-Chain Indexer", ServicesVersion)
 	routes.AddTransferRoutes(router, ctx)
 	routes.AddStakerRoutes(router, ctx)
 	routes.AddTransactionRoutes(router, ctx, epochs)
