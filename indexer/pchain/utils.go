@@ -29,7 +29,7 @@ func CallPChainGetTxApi(client chain.RPCClient, txID string) (*txs.Tx, error) {
 	}
 
 	// Parse from hex string
-	txData, err := formatting.Decode(formatting.Hex, reply.Tx.(string))
+	txData, err := formatting.Decode(formatting.Hex, string(reply.Tx))
 	if err != nil {
 		return nil, err
 	}

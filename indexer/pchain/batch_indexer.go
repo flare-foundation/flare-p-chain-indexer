@@ -12,7 +12,7 @@ import (
 
 	"github.com/ava-labs/avalanchego/indexer"
 	"github.com/ava-labs/avalanchego/vms/components/avax"
-	"github.com/ava-labs/avalanchego/vms/platformvm/blocks"
+	"github.com/ava-labs/avalanchego/vms/platformvm/block"
 	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
 	"gorm.io/gorm"
 )
@@ -36,6 +36,8 @@ type txBatchIndexer struct {
 	inOutIndexer    *shared.InputOutputIndexer
 	newTxs          []*database.PChainTx
 	dataTransformer *PChainDataTransformer
+
+	durangoTime time.Time
 }
 
 func NewPChainDataTransformer(txTransformer func(tx *database.PChainTx) *database.PChainTx) *PChainDataTransformer {
@@ -50,6 +52,11 @@ func NewPChainBatchIndexer(
 	rpcClient chain.RPCClient,
 	dataTransformer *PChainDataTransformer,
 ) *txBatchIndexer {
+	var durangoTime time.Time
+	if time, ok := shared.DurangoTimes[ctx.Config().Chain.ChainAddressHRP]; ok {
+		durangoTime = time
+	}
+
 	updater := newPChainInputUpdater(ctx, rpcClient)
 	return &txBatchIndexer{
 		db:        ctx.DB(),
@@ -59,6 +66,8 @@ func NewPChainBatchIndexer(
 		inOutIndexer:    shared.NewInputOutputIndexer(updater),
 		newTxs:          make([]*database.PChainTx, 0),
 		dataTransformer: dataTransformer,
+
+		durangoTime: durangoTime,
 	}
 }
 
@@ -74,14 +83,14 @@ func (xi *txBatchIndexer) AddContainer(index uint64, container indexer.Container
 	}
 
 	switch innerBlkType := innerBlk.(type) {
-	case *blocks.ApricotProposalBlock:
+	case *block.ApricotProposalBlock:
 		tx := innerBlkType.Tx
 		err = xi.addTx(&container, database.PChainProposalBlock, innerBlk.Height(), 0, tx)
-	case *blocks.ApricotCommitBlock:
+	case *block.ApricotCommitBlock:
 		xi.addEmptyTx(&container, database.PChainCommitBlock, innerBlk.Height(), 0)
-	case *blocks.ApricotAbortBlock:
+	case *block.ApricotAbortBlock:
 		xi.addEmptyTx(&container, database.PChainAbortBlock, innerBlk.Height(), 0)
-	case *blocks.ApricotStandardBlock:
+	case *block.ApricotStandardBlock:
 		for _, tx := range innerBlkType.Txs() {
 			err = xi.addTx(&container, database.PChainStandardBlock, innerBlk.Height(), 0, tx)
 			if err != nil {
@@ -89,14 +98,14 @@ func (xi *txBatchIndexer) AddContainer(index uint64, container indexer.Container
 			}
 		}
 	// Banff blocks were introduced in Avalanche 1.9.0
-	case *blocks.BanffProposalBlock:
+	case *block.BanffProposalBlock:
 		tx := innerBlkType.Tx
 		err = xi.addTx(&container, database.PChainProposalBlock, innerBlk.Height(), innerBlkType.Time, tx)
-	case *blocks.BanffCommitBlock:
+	case *block.BanffCommitBlock:
 		xi.addEmptyTx(&container, database.PChainCommitBlock, innerBlk.Height(), innerBlkType.Time)
-	case *blocks.BanffAbortBlock:
+	case *block.BanffAbortBlock:
 		xi.addEmptyTx(&container, database.PChainAbortBlock, innerBlk.Height(), innerBlkType.Time)
-	case *blocks.BanffStandardBlock:
+	case *block.BanffStandardBlock:
 		for _, tx := range innerBlkType.Txs() {
 			err = xi.addTx(&container, database.PChainStandardBlock, innerBlk.Height(), innerBlkType.Time, tx)
 			if err != nil {
@@ -145,6 +154,11 @@ func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database
 		err = xi.updateExportTx(dbTx, unsignedTx)
 	case *txs.AdvanceTimeTx:
 		xi.updateAdvanceTimeTx(dbTx, unsignedTx)
+	case *txs.BaseTx:
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainBaseTx, unsignedTx)
+
+	// We do not save specific info for the following transaction types.
+	// We may change this in the future if we need to index more data.
 	case *txs.CreateChainTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainCreateChainTx, &unsignedTx.BaseTx)
 	case *txs.CreateSubnetTx:
@@ -153,8 +167,8 @@ func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainRemoveSubnetValidatorTx, &unsignedTx.BaseTx)
 	case *txs.TransformSubnetTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainTransformSubnetTx, &unsignedTx.BaseTx)
-	// We leave out the following transaction types as they are rejected by Flare nodes
-	// - AddSubnetValidatorTx
+	case *txs.AddSubnetValidatorTx:
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainAddSubnetValidatorTx, &unsignedTx.BaseTx)
 	default:
 		err = fmt.Errorf("p-chain transaction %v with type %T in block %d is not indexed", dbTx.TxID, unsignedTx, height)
 	}
@@ -260,7 +274,7 @@ func (xi *txBatchIndexer) PersistEntities(db *gorm.DB) error {
 // Common code for addValidatorTx and addPermissionlessValidatorTx (ValidatorTx interface)
 func (xi *txBatchIndexer) updateValidatorTx(
 	dbTx *database.PChainTx,
-	tx txs.ValidatorTx,
+	tx ValidatorTx,
 	txIns []*avax.TransferableInput,
 ) error {
 	ownerAddress, err := shared.RewardsOwnerAddress(tx.ValidationRewardsOwner())
@@ -282,7 +296,7 @@ func (xi *txBatchIndexer) updateValidatorTx(
 // Common code for AddDelegatorTx and AddPermissionlessDelegatorTx (DelegatorTx interface)
 func (xi *txBatchIndexer) updateDelegatorTx(
 	dbTx *database.PChainTx,
-	tx txs.DelegatorTx,
+	tx DelegatorTx,
 	txIns []*avax.TransferableInput,
 ) error {
 	ownerAddress, err := shared.RewardsOwnerAddress(tx.RewardsOwner())
@@ -294,12 +308,18 @@ func (xi *txBatchIndexer) updateDelegatorTx(
 }
 
 // Common code for Add[Permissionless]DelegatorTx and Add[Permissionless]ValidatorTx
+// We assume that dbTx.blockTime is set to the block time before calling this function
 func (xi *txBatchIndexer) updateAddStakerTx(
 	dbTx *database.PChainTx,
-	tx txs.PermissionlessStaker,
+	tx StakerTx,
 	txIns []*avax.TransferableInput,
 ) error {
-	startTime := tx.StartTime()
+	var startTime time.Time
+	if xi.isDurango(dbTx.BlockTime) {
+		startTime = *dbTx.BlockTime
+	} else {
+		startTime = tx.StartTime()
+	}
 	endTime := tx.EndTime()
 	dbTx.NodeID = tx.NodeID().String()
 	dbTx.StartTime = &startTime
@@ -327,7 +347,11 @@ func (xi *txBatchIndexer) updateAddStakerTx(
 	return nil
 }
 
-func getAddStakerTxOutputs(txID string, tx txs.PermissionlessStaker) ([]shared.Output, error) {
+func (xi *txBatchIndexer) isDurango(blockTime *time.Time) bool {
+	return blockTime != nil && !blockTime.Before(xi.durangoTime)
+}
+
+func getAddStakerTxOutputs(txID string, tx StakerTx) ([]shared.Output, error) {
 	outs, err := shared.OutputsFromTxOuts(txID, tx.Outputs(), 0, PChainDefaultInputOutputCreator)
 	if err != nil {
 		return nil, err

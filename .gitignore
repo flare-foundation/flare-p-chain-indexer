@@ -21,3 +21,5 @@ config.*.toml
 # Logs
 /logs
 
+# Other files
+.DS_Store

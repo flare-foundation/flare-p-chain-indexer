@@ -3,12 +3,13 @@ package chain
 import (
 	"encoding/hex"
 	"fmt"
+	"time"
 
 	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
 	"github.com/ava-labs/avalanchego/utils/hashing"
 	"github.com/ava-labs/avalanchego/vms/components/verify"
-	"github.com/ava-labs/avalanchego/vms/platformvm/blocks"
-	"github.com/ava-labs/avalanchego/vms/proposervm/block"
+	"github.com/ava-labs/avalanchego/vms/platformvm/block"
+	proposerBlock "github.com/ava-labs/avalanchego/vms/proposervm/block"
 	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
 	"github.com/ava-labs/coreth/accounts"
 	"github.com/pkg/errors"
@@ -22,17 +23,17 @@ var (
 )
 
 // If block.Parse fails, try to parse as a "pre-fork" block
-func ParsePChainBlock(blockBytes []byte) (blocks.Block, error) {
-	blk, err := block.Parse(blockBytes)
-	var innerBlk blocks.Block
+func ParsePChainBlock(blockBytes []byte) (block.Block, error) {
+	blk, err := proposerBlock.Parse(blockBytes, time.Time{})
+	var innerBlk block.Block
 	if err == nil {
-		innerBlk, err = blocks.Parse(blocks.GenesisCodec, blk.Block())
+		innerBlk, err = block.Parse(block.GenesisCodec, blk.Block())
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to parse inner block")
 		}
 	} else {
 		// try to parse as as a "pre-fork" block
-		innerBlk, err = blocks.Parse(blocks.GenesisCodec, blockBytes)
+		innerBlk, err = block.Parse(block.GenesisCodec, blockBytes)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to parse block")
 		}
@@ -49,7 +50,7 @@ func PublicKeyFromPChainBlock(txID string, addrBytes [20]byte, addrIndex uint32,
 	}
 
 	switch blk := innerBlk.(type) {
-	case *blocks.ApricotProposalBlock:
+	case *block.ApricotProposalBlock:
 		// We extract public keys from the add delegator and
 		// add validator which are only in proposal blocks
 		if blk.Tx.ID().String() != txID {
@@ -60,7 +61,7 @@ func PublicKeyFromPChainBlock(txID string, addrBytes [20]byte, addrIndex uint32,
 		}
 		txBytes := blk.Tx.Unsigned.Bytes()
 		return PublicKeyForAddressAndSignedHash(blk.Tx.Creds[addrIndex], addrBytes, hashing.ComputeHash256(txBytes))
-	case *blocks.BanffStandardBlock:
+	case *block.BanffStandardBlock:
 		// In Banff blocks, add delegator and add validator transactions
 		// are in standard blocks. We extract public keys from them.
 		for _, tx := range blk.Txs() {
@@ -91,13 +92,12 @@ func PublicKeyFromPChainBlock(txID string, addrBytes [20]byte, addrIndex uint32,
 // For a given P-chain transaction hash return a public key for
 // a signature of a transaction hash that matches the provided address
 func PublicKeyForAddressAndSignedHash(cred verify.Verifiable, address [20]byte, signedTxHash []byte) (*secp256k1.PublicKey, error) {
-	factory := secp256k1.Factory{}
 	if secpCred, ok := cred.(*secp256k1fx.Credential); !ok {
 		return nil, ErrInvalidCredentialType
 	} else {
 		sigs := secpCred.Sigs
 		for si, sig := range sigs {
-			pubKey, err := factory.RecoverHashPublicKey(signedTxHash, sig[:])
+			pubKey, err := secp256k1.RecoverPublicKeyFromHash(signedTxHash, sig[:])
 			if err != nil {
 				return nil, fmt.Errorf("failed to recover public key from cred sig %d: %w", si, err)
 			}

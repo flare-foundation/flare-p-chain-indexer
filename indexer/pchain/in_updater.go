@@ -73,7 +73,11 @@ func (iu *pChainInputUpdater) updateFromChain(
 		switch unsignedTx := tx.Unsigned.(type) {
 		case *txs.AddValidatorTx:
 			outs, err = iu.getAddStakerTxAndRewardTxOutputs(txId, unsignedTx)
+		case *txs.AddPermissionlessValidatorTx:
+			outs, err = iu.getAddStakerTxAndRewardTxOutputs(txId, unsignedTx)
 		case *txs.AddDelegatorTx:
+			outs, err = iu.getAddStakerTxAndRewardTxOutputs(txId, unsignedTx)
+		case *txs.AddPermissionlessDelegatorTx:
 			outs, err = iu.getAddStakerTxAndRewardTxOutputs(txId, unsignedTx)
 		default:
 			txOuts := tx.Unsigned.Outputs()
@@ -89,7 +93,7 @@ func (iu *pChainInputUpdater) updateFromChain(
 	return inputs.UpdateWithOutputs(fetchedOuts), nil
 }
 
-func (iu *pChainInputUpdater) getAddStakerTxAndRewardTxOutputs(txId string, tx txs.PermissionlessStaker) ([]shared.Output, error) {
+func (iu *pChainInputUpdater) getAddStakerTxAndRewardTxOutputs(txId string, tx StakerTx) ([]shared.Output, error) {
 	outs, err := getAddStakerTxOutputs(txId, tx)
 	if err != nil {
 		return nil, err
