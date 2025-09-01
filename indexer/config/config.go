@@ -1,10 +1,13 @@
 package config
 
 import (
-	"flare-indexer/config"
-	"flare-indexer/utils"
+	"math/big"
 	"time"
 
+	"flare-indexer/config"
+	"flare-indexer/utils"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -19,6 +22,24 @@ type Config struct {
 	Mirror            MirrorConfig        `toml:"mirroring_cronjob"`
 	VotingCronjob     VotingConfig        `toml:"voting_cronjob"`
 	ContractAddresses ContractAddresses   `toml:"contract_addresses"`
+}
+
+type Gas struct {
+	GasLimit uint64 `toml:"gas_limit"` // Gas limit to set for the transaction execution (0 = estimate)
+
+	// type 0
+	GasPrice *big.Int `toml:"gas_price"` // Gas price to use for the transaction execution (nil = gas price oracle)
+
+	// type 2
+	GasFeeCap *big.Int `toml:"gas_fee_cap"` // Gas fee cap to use for the 1559 transaction execution (nil = gas price oracle)
+	GasTipCap *big.Int `toml:"gas_tip_cap"` // Gas priority fee cap to use for the 1559 transaction execution (nil = gas price oracle)
+}
+
+func (g *Gas) SetTransactOpts(txOpts *bind.TransactOpts) {
+	txOpts.GasLimit = g.GasLimit
+	txOpts.GasPrice = g.GasPrice
+	txOpts.GasFeeCap = g.GasFeeCap
+	txOpts.GasTipCap = g.GasTipCap
 }
 
 type MetricsConfig struct {
@@ -42,12 +63,13 @@ type CronjobConfig struct {
 type MirrorConfig struct {
 	CronjobConfig
 	config.EpochConfig
+	Gas Gas `toml:"gas_limit"`
 }
 
 type VotingConfig struct {
 	CronjobConfig
 	config.EpochConfig
-	GasLimit uint64 `toml:"gas_limit" envconfig:"VOTING_GAS_LIMIT"`
+	Gas Gas `toml:"gas_limit"`
 }
 
 type UptimeConfig struct {
