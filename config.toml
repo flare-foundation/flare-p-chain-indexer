@@ -58,11 +58,31 @@ timeout = "10s"
 # first epoch to be voted for (do not leave this empty since the first epoch is well back in time)
 first = 1111
 
+[voting_cronjob.gas_limit]
+# gas_limit = 21000
+
+# type 0
+# gas_price = 2000000000
+
+# type 2
+# gas_fee_cap = 2
+# gas_tip_cap = 100000000000
+
 [mirroring_cronjob]
 enabled = false
 timeout = "10s"
 # first epoch to be voted for (do not leave this empty since the first epoch is well back in time)
 first = 1111
+
+[mirroring_cronjob.gas_limit]
+# gas_limit = 21000
+
+# type 0
+# gas_price = 2000000000
+
+# type 2
+# gas_fee_cap = 2
+# gas_tip_cap = 100000000000
 
 [contract_addresses]
 mirroring = "0x0000000"
