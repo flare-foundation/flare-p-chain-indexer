@@ -63,13 +63,13 @@ type CronjobConfig struct {
 type MirrorConfig struct {
 	CronjobConfig
 	config.EpochConfig
-	Gas Gas `toml:"gas_limit"`
+	Gas Gas `toml:"gas"`
 }
 
 type VotingConfig struct {
 	CronjobConfig
 	config.EpochConfig
-	Gas Gas `toml:"gas_limit"`
+	Gas Gas `toml:"gas"`
 }
 
 type UptimeConfig struct {
