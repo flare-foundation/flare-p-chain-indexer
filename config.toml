@@ -59,14 +59,14 @@ timeout = "10s"
 first = 1111
 
 [voting_cronjob.gas_limit]
-# gas_limit = 21000
+gas_limit = 120000
 
 # type 0
-# gas_price = 2000000000
+# gas_price = 
 
 # type 2
-# gas_fee_cap = 2
-# gas_tip_cap = 100000000000
+# gas_fee_cap =
+# gas_tip_cap =
 
 [mirroring_cronjob]
 enabled = false
@@ -75,14 +75,14 @@ timeout = "10s"
 first = 1111
 
 [mirroring_cronjob.gas_limit]
-# gas_limit = 21000
+gas_limit = 1000000
 
 # type 0
-# gas_price = 2000000000
+# gas_price = 
 
 # type 2
-# gas_fee_cap = 2
-# gas_tip_cap = 100000000000
+# gas_fee_cap = 
+# gas_tip_cap = 
 
 [contract_addresses]
 mirroring = "0x0000000"
