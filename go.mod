@@ -3,7 +3,7 @@ module flare-indexer
 go 1.22
 
 require (
-	github.com/BurntSushi/toml v1.2.1
+	github.com/BurntSushi/toml v1.5.0
 	github.com/ava-labs/avalanchego v1.11.1
 	github.com/ava-labs/coreth v0.13.0-rc.0
 	github.com/bradleyjkemp/cupaloy v2.3.0+incompatible
@@ -15,10 +15,10 @@ require (
 	github.com/go-sql-driver/mysql v1.7.0
 	github.com/google/go-cmp v0.6.0
 	github.com/gorilla/mux v1.8.0
-	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.14.0
 	github.com/rs/cors v1.8.3
+	github.com/sethvargo/go-envconfig v1.3.0
 	github.com/stretchr/testify v1.8.4
 	github.com/swaggest/swgui v1.6.3
 	github.com/ybbus/jsonrpc/v3 v3.1.1

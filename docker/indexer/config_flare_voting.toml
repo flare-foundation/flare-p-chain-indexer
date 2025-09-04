@@ -50,6 +50,8 @@ enabled = true
 timeout = "10s"
 first = 211500
 delay = "10s"
+
+[voting_cronjob.gas]
 gas_limit = 120000
 
 [contract_addresses]

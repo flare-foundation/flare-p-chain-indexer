@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/url"
@@ -10,7 +11,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/kelseyhightower/envconfig"
+	"github.com/sethvargo/go-envconfig"
 )
 
 const (
@@ -36,24 +37,24 @@ type LoggerConfig struct {
 }
 
 type DBConfig struct {
-	Host       string `toml:"host" envconfig:"DB_HOST"`
-	Port       int    `toml:"port" envconfig:"DB_PORT"`
-	Database   string `toml:"database" envconfig:"DB_DATABASE"`
-	Username   string `toml:"username" envconfig:"DB_USERNAME"`
-	Password   string `toml:"password" envconfig:"DB_PASSWORD"`
+	Host       string `toml:"host" env:"DB_HOST"`
+	Port       int    `toml:"port" env:"DB_PORT"`
+	Database   string `toml:"database" env:"DB_DATABASE"`
+	Username   string `toml:"username" env:"DB_USERNAME"`
+	Password   string `toml:"password" env:"DB_PASSWORD"`
 	LogQueries bool   `toml:"log_queries"`
 }
 
 type ChainConfig struct {
-	NodeURL         string `toml:"node_url" envconfig:"CHAIN_NODE_URL"`
-	ChainAddressHRP string `toml:"address_hrp" envconfig:"CHAIN_ADDRESS_HRP"`
-	ChainID         int    `toml:"chain_id" envconfig:"CHAIN_ID"`
-	EthRPCURL       string `toml:"eth_rpc_url" envconfig:"ETH_RPC_URL"`
-	ApiKey          string `toml:"api_key" envconfig:"API_KEY"`
+	NodeURL         string `toml:"node_url" env:"CHAIN_NODE_URL"`
+	ChainAddressHRP string `toml:"address_hrp" env:"CHAIN_ADDRESS_HRP"`
+	ChainID         int    `toml:"chain_id" env:"CHAIN_ID"`
+	EthRPCURL       string `toml:"eth_rpc_url" env:"ETH_RPC_URL"`
+	ApiKey          string `toml:"api_key" env:"API_KEY"`
 	// setting the private key in config file is deprecated, except in development and testing
 	// use private_key_file instead
-	PrivateKey     string `toml:"private_key" envconfig:"PRIVATE_KEY"`
-	PrivateKeyFile string `toml:"private_key_file" envconfig:"PRIVATE_KEY_FILE"`
+	PrivateKey     string `toml:"private_key" env:"PRIVATE_KEY"`
+	PrivateKeyFile string `toml:"private_key_file" env:"PRIVATE_KEY_FILE"`
 }
 
 func (cfg ChainConfig) GetPrivateKey() (string, error) {
@@ -99,11 +100,11 @@ func (chain *ChainConfig) getRPCURL() (string, error) {
 }
 
 type EpochConfig struct {
-	First int64 `toml:"first" envconfig:"EPOCH_FIRST"`
+	First int64 `toml:"first" env:"EPOCH_FIRST"`
 }
 
 type ContractAddresses struct {
-	Voting common.Address `toml:"voting" envconfig:"VOTING_CONTRACT_ADDRESS"`
+	Voting common.Address `toml:"voting" env:"VOTING_CONTRACT_ADDRESS"`
 }
 
 func ParseConfigFile(cfg interface{}, fileName string, allowMissing bool) error {
@@ -124,7 +125,7 @@ func ParseConfigFile(cfg interface{}, fileName string, allowMissing bool) error 
 }
 
 func ReadEnv(cfg interface{}) error {
-	err := envconfig.Process("", cfg)
+	err := envconfig.Process(context.Background(), cfg)
 	if err != nil {
 		return fmt.Errorf("error reading env config: %w", err)
 	}
