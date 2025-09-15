@@ -104,7 +104,7 @@ type EpochConfig struct {
 }
 
 type ContractAddresses struct {
-	Voting common.Address `toml:"voting" env:"VOTING_CONTRACT_ADDRESS"`
+	Voting common.Address `toml:"voting" env:"VOTING_CONTRACT_ADDRESS, default=0x0000000000000000000000000000000000000000"`
 }
 
 func ParseConfigFile(cfg interface{}, fileName string, allowMissing bool) error {
