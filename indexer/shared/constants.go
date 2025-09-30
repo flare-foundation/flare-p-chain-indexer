@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	ApplicationVersion = "2.2.2"
+	ApplicationVersion = "2.2.3"
 )
 
 var (
