@@ -99,8 +99,12 @@ func (xi *txBatchIndexer) AddContainer(index uint64, container indexer.Container
 		}
 	// Banff blocks were introduced in Avalanche 1.9.0
 	case *block.BanffProposalBlock:
-		tx := innerBlkType.Tx
-		err = xi.addTx(&container, database.PChainProposalBlock, innerBlk.Height(), innerBlkType.Time, tx)
+		for _, tx := range innerBlkType.Txs() {
+			err = xi.addTx(&container, database.PChainProposalBlock, innerBlk.Height(), innerBlkType.Time, tx)
+			if err != nil {
+				break
+			}
+		}
 	case *block.BanffCommitBlock:
 		xi.addEmptyTx(&container, database.PChainCommitBlock, innerBlk.Height(), innerBlkType.Time)
 	case *block.BanffAbortBlock:
