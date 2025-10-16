@@ -100,27 +100,11 @@ gas_limit = 120000      # Gas limit to set for the transaction execution (empty 
 # gas_fee_cap = ...       # Gas fee cap to use for the 1559 transaction (type 2) execution (empty = gas price oracle)
 # gas_tip_cap = ...       # Gas priority fee cap to use for the 1559 transaction (type 2) execution (empty = gas price oracle)
 
-
-[voting_cronjob.gas]
-gas_limit = 120000    # Gas limit to set for the transaction execution (empty = estimate)
-
-# type 0 transaction options
-gas_price = ...       # Create type 0 transaction: gas price to use for the transaction execution (empty = gas price oracle)
-
-# type 2 transaction (EIP-1559) options
-gas_fee_cap = ...     # Gas fee cap to use for the 1559 transaction (type 2) execution (empty = gas price oracle)
-gas_tip_cap = ...     # Gas priority fee cap to use for the 1559 transaction (type 2) execution (empty = gas price oracle)
-
-
 [mirroring_cronjob]
 enabled = false         # enable mirroring client
 timeout = "10s"         # check for new epochs every ... seconds
 first = 12345           # first epoch to mirror
 delay = "10s"           # min delay in seconds to send the vote after the epoch ends
-
-[mirroring_cronjob.gas]
-gas_limit = 1000000
-# see voting_cronjob.gas for other gas options
 
 [mirroring_cronjob.gas]
 gas_limit = 1000000
