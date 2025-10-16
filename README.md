@@ -69,10 +69,10 @@ api_key = ""    # API key (in case the node is protected by API key), adds ?x-ap
 private_key_file = "../credentials/pk.txt"  # file containing the private key of an account (for voting and mirroring clients), in hex
 
 [p_chain_indexer]
-enabled = true         # enable p-chain indexing
-timeout = "1000ms"     # call avalanche p-chain indexer every ...
-batch_size = 10        # batch size to fetch from the node
-start_index = 0        # start indexing at this block height
+enabled = true          # enable p-chain indexing
+timeout = "1000ms"      # call avalanche p-chain indexer every ...
+batch_size = 10         # batch size to fetch from the node
+start_index = 0         # start indexing at this block height
 
 [uptime_cronjob]
 enabled = false         # enable uptime monitoring cronjob
@@ -85,16 +85,31 @@ uptime_threshold = 0.8  # minimum uptime ratio in the epoch for a validator to b
 delete_old_uptimes_epoch_threshold = 5  # delete uptimes older than this epoch
 
 [voting_cronjob]
-enabled = false          # enable voting client
-timeout = "10s"          # check for new epochs every ...
-first = 12345            # first epoch to vote for
-delay = "10s"            # min delay in seconds to send the vote after the epoch ends
+enabled = false         # enable voting client
+timeout = "10s"         # check for new epochs every ...
+first = 12345           # first epoch to vote for
+delay = "10s"           # min delay in seconds to send the vote after the epoch ends
+
+[voting_cronjob.gas]
+gas_limit = 120000      # Gas limit to set for the transaction execution (empty = estimate)
+
+# type 0 transaction options
+# gas_price = ...         # Create type 0 transaction: gas price to use for the transaction execution (empty = gas price oracle)
+
+# type 2 transaction (EIP-1559) options
+# gas_fee_cap = ...       # Gas fee cap to use for the 1559 transaction (type 2) execution (empty = gas price oracle)
+# gas_tip_cap = ...       # Gas priority fee cap to use for the 1559 transaction (type 2) execution (empty = gas price oracle)
+
 
 [mirroring_cronjob]
-enabled = false       # enable mirroring client
-timeout = "10s"       # check for new epochs every ... seconds
-first = 12345         # first epoch to mirror
-delay = "10s"         # min delay in seconds to send the vote after the epoch ends
+enabled = false         # enable mirroring client
+timeout = "10s"         # check for new epochs every ... seconds
+first = 12345           # first epoch to mirror
+delay = "10s"           # min delay in seconds to send the vote after the epoch ends
+
+[mirroring_cronjob.gas]
+gas_limit = 1000000
+# see voting_cronjob.gas for other gas options
 
 [contract_addresses]
 voting = "0xf956df3800379fdFA31D0A45FDD5001D02F4109c"       # voting contract address
