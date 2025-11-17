@@ -11,21 +11,22 @@ import (
 	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
 )
 
-// Create database outputs from TransferableOutputs, provided their type is *secp256k1fx.TransferOutput and the
-// number of addresses for each output is 1. Error is returned if these two conditions
-// are not met.
-func OutputsFromTxOuts(txID string, outs []*avax.TransferableOutput, startIndex int, creator OutputCreator) ([]Output, error) {
-	txOuts := make([]Output, len(outs))
+// Create database outputs from TransferableOutputs, provided their type is *secp256k1fx.TransferOutput
+func OutputsFromTxOuts(
+	txID string,
+	outs []*avax.TransferableOutput,
+	startIndex int,
+	creator OutputCreator,
+) ([]Output, error) {
+	txOuts := make([]Output, 0, len(outs))
 	for outi, cout := range outs {
-		dbOut := &database.TxOutput{
-			TxID: txID,
-			Idx:  uint32(outi + startIndex),
-		}
-		err := UpdateTransferableOutput(dbOut, cout.Out)
+		dbOuts, err := CreateTransferableOutputs(txID, uint32(outi+startIndex), cout.Out)
 		if err != nil {
 			return nil, err
 		}
-		txOuts[outi] = creator.CreateOutput(dbOut)
+		for _, dbOut := range dbOuts {
+			txOuts = append(txOuts, creator.CreateOutput(dbOut))
+		}
 	}
 	return txOuts, nil
 }
@@ -67,6 +68,34 @@ func UpdateTransferableOutput(dbOut *database.TxOutput, out verify.State) error 
 	dbOut.Amount = to.Amount()
 	dbOut.Address = addr
 	return nil
+}
+
+// Create database outputs from out provided its type is *secp256k1fx.TransferOutput.
+// Note that multiple database outputs are created if there are multiple addresses in out.
+func CreateTransferableOutputs(
+	txID string,
+	idx uint32,
+	out verify.State,
+) ([]*database.TxOutput, error) {
+	to, ok := out.(*secp256k1fx.TransferOutput)
+	if !ok {
+		return nil, fmt.Errorf("TransferableOutput has unsupported type")
+	}
+	dbOuts := make([]*database.TxOutput, len(to.Addrs))
+	for i, addr := range to.Addrs {
+		formattedAddr, err := chain.FormatAddressBytes(addr.Bytes())
+		if err != nil {
+			return nil, err
+		}
+		dbOut := &database.TxOutput{
+			TxID:    txID,
+			Idx:     idx,
+			Amount:  to.Amount(),
+			Address: formattedAddr,
+		}
+		dbOuts[i] = dbOut
+	}
+	return dbOuts, nil
 }
 
 // Return address from Owner interface provided its type is *secp256k1fx.OutputOwners and the
