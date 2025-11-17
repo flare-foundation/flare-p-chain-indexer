@@ -200,7 +200,15 @@ func DedupeTxs(txs []database.PChainTxData) []database.PChainTxData {
 			continue
 		}
 
-		txSet[*tx.TxID] = tx
+		if setTx, exists := txSet[*tx.TxID]; exists {
+			// If there is already a tx with this txID and index 0, keep the one with the
+			// lexically smallest input address
+			if tx.InputAddress < setTx.InputAddress {
+				txSet[*tx.TxID] = tx
+			}
+		} else {
+			txSet[*tx.TxID] = tx
+		}
 	}
 
 	dedupedTxs := make([]database.PChainTxData, 0, len(txSet))
