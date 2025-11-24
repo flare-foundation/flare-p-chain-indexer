@@ -13,7 +13,7 @@ import (
 	"github.com/ava-labs/avalanchego/indexer"
 	"github.com/ava-labs/avalanchego/snow/engine/avalanche/vertex"
 	"github.com/ava-labs/avalanchego/vms/avm/txs"
-	"github.com/ava-labs/avalanchego/wallet/chain/x"
+	"github.com/ava-labs/avalanchego/wallet/chain/x/builder"
 	"gorm.io/gorm"
 )
 
@@ -75,7 +75,7 @@ func (xi *txBatchIndexer) AddContainer(index uint64, container indexer.Container
 }
 
 func (xi *txBatchIndexer) addTransaction(vtxHeight uint64, txBytes []byte) error {
-	tx, err := x.Parser.ParseGenesisTx(txBytes)
+	tx, err := builder.Parser.ParseGenesisTx(txBytes)
 	if err != nil {
 		return err
 	}
