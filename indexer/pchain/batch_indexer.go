@@ -173,6 +173,16 @@ func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainTransformSubnetTx, &unsignedTx.BaseTx)
 	case *txs.AddSubnetValidatorTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainAddSubnetValidatorTx, &unsignedTx.BaseTx)
+	case *txs.ConvertSubnetToL1Tx:
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainConvertSubnetToL1Tx, &unsignedTx.BaseTx)
+	case *txs.RegisterL1ValidatorTx:
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainRegisterL1ValidatorTx, &unsignedTx.BaseTx)
+	case *txs.DisableL1ValidatorTx:
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainDisableL1ValidatorTx, &unsignedTx.BaseTx)
+	case *txs.SetL1ValidatorWeightTx:
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainSetL1ValidatorWeightTx, &unsignedTx.BaseTx)
+	case *txs.IncreaseL1ValidatorBalanceTx:
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainIncreaseL1ValidatorBalanceTx, &unsignedTx.BaseTx)
 	default:
 		err = fmt.Errorf("p-chain transaction %v with type %T in block %d is not indexed", dbTx.TxID, unsignedTx, height)
 	}

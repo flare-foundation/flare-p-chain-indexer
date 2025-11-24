@@ -28,6 +28,11 @@ const (
 	PChainAddPermissionlessValidatorTx PChainTxType = "ADD_PERMISSIONLESS_VALIDATOR_TX"
 	PChainAddPermissionlessDelegatorTx PChainTxType = "ADD_PERMISSIONLESS_DELEGATOR_TX"
 	PChainBaseTx                       PChainTxType = "BASE_TX"
+	PChainConvertSubnetToL1Tx          PChainTxType = "CONVERT_SUBNET_TO_L1_TX"
+	PChainRegisterL1ValidatorTx        PChainTxType = "REGISTER_L1_VALIDATOR_TX"
+	PChainDisableL1ValidatorTx         PChainTxType = "DISABLE_L1_VALIDATOR_TX"
+	PChainSetL1ValidatorWeightTx       PChainTxType = "SET_L1_VALIDATOR_WEIGHT_TX"
+	PChainIncreaseL1ValidatorBalanceTx PChainTxType = "INCREASE_L1_VALIDATOR_BALANCE_TX"
 	PChainUnknownTx                    PChainTxType = "UNKNOWN_TX"
 )
 
