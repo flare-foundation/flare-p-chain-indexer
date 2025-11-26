@@ -27,7 +27,7 @@ func TestCache(t *testing.T) {
 		if !ok {
 			t.Fatalf("Expected key %d to exist", i)
 		}
-		if value != -i {
+		if len(value) != 1 || value[0] != -i {
 			t.Fatalf("Expected value %d, got %d", -i, value)
 		}
 	}
@@ -49,7 +49,7 @@ func TestCache(t *testing.T) {
 			if !ok {
 				t.Fatalf("Expected key %d to exist", i)
 			}
-			if value != -i {
+			if len(value) != 1 || value[0] != -i {
 				t.Fatalf("Expected value %d, got %d", -i, value)
 			}
 		}

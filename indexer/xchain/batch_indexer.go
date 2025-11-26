@@ -121,9 +121,12 @@ func (xi *txBatchIndexer) addBaseTx(
 
 // Persist all entities
 func (i *txBatchIndexer) PersistEntities(db *gorm.DB) error {
-	ins, err := utils.CastArray[*database.XChainTxInput](i.inOutIndexer.GetIns())
-	if err != nil {
-		return err
+	updatableIns := i.inOutIndexer.GetIns()
+	ins := make([]*database.XChainTxInput, 0, 2*len(updatableIns))
+	for _, in := range updatableIns {
+		for _, dbIn := range in.ToDbInputs() {
+			ins = append(ins, &database.XChainTxInput{TxInput: *dbIn})
+		}
 	}
 	outs, err := utils.CastArray[*database.XChainTxOutput](i.inOutIndexer.GetNewOuts())
 	if err != nil {

@@ -267,9 +267,12 @@ func (xi *txBatchIndexer) updateGeneralBaseTx(dbTx *database.PChainTx, txType da
 
 // Persist all entities
 func (xi *txBatchIndexer) PersistEntities(db *gorm.DB) error {
-	ins, err := utils.CastArray[*database.PChainTxInput](xi.inOutIndexer.GetIns())
-	if err != nil {
-		return err
+	updatableIns := xi.inOutIndexer.GetIns()
+	ins := make([]*database.PChainTxInput, 0, 2*len(updatableIns))
+	for _, in := range updatableIns {
+		for _, dbIn := range in.ToDbInputs() {
+			ins = append(ins, &database.PChainTxInput{TxInput: *dbIn})
+		}
 	}
 	outs, err := utils.CastArray[*database.PChainTxOutput](xi.inOutIndexer.GetNewOuts())
 	if err != nil {
@@ -354,7 +357,7 @@ func (xi *txBatchIndexer) updateAddStakerTx(
 	if err != nil {
 		return err
 	}
-	ins := shared.InputsFromTxIns(*dbTx.TxID, txIns, PChainDefaultInputOutputCreator)
+	ins := shared.InputsFromTxIns(*dbTx.TxID, txIns)
 
 	xi.newTxs = append(xi.newTxs, dbTx)
 	xi.inOutIndexer.Add(outs, ins)
