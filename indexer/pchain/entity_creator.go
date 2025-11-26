@@ -3,6 +3,7 @@ package pchain
 import (
 	"flare-indexer/database"
 	"flare-indexer/indexer/shared"
+	"flare-indexer/utils"
 )
 
 var (
@@ -11,17 +12,16 @@ var (
 	PChainRewardOutputCreator       = inputOutputCreator{outputType: database.PChainRewardOutput}
 )
 
-type inputCreator struct{}
-
 type inputOutputCreator struct {
-	inputCreator
 	outputType database.PChainOutputType
 }
 
-func (ioc inputCreator) CreateInput(in *database.TxInput) shared.Input {
-	return &database.PChainTxInput{
-		TxInput: *in,
-	}
+func (ioc inputOutputCreator) CreateInputs(in shared.UpdatableInput) []*database.PChainTxInput {
+	return utils.Map(in.ToDbInputs(), func(dbIn *database.TxInput) *database.PChainTxInput {
+		return &database.PChainTxInput{
+			TxInput: *dbIn,
+		}
+	})
 }
 
 func (ioc inputOutputCreator) CreateOutput(out *database.TxOutput) shared.Output {

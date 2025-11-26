@@ -11,12 +11,48 @@ type Output interface {
 	Addr() string  // address
 }
 
-type Input interface {
+type UpdatableInput interface {
 	OutTx() string    // output transaction id of the input
 	OutIndex() uint32 // index of output transaction
-	Addr() string     // address
 
-	UpdateAddr(string)
+	UpdateAddresses([]string)
+	ToDbInputs() []*database.TxInput
+}
+
+type updatableInput struct {
+	InIdx     uint32
+	TxID      string
+	Amount    uint64
+	Addresses []string
+	OutTxID   string
+	OutIdx    uint32
+}
+
+func (ui *updatableInput) OutTx() string {
+	return ui.OutTxID
+}
+
+func (ui *updatableInput) OutIndex() uint32 {
+	return ui.OutIdx
+}
+
+func (ui *updatableInput) UpdateAddresses(addrs []string) {
+	ui.Addresses = addrs
+}
+
+func (ui *updatableInput) ToDbInputs() []*database.TxInput {
+	dbInputs := make([]*database.TxInput, len(ui.Addresses))
+	for i, addr := range ui.Addresses {
+		dbInputs[i] = &database.TxInput{
+			InIdx:   ui.InIdx,
+			TxID:    ui.TxID,
+			Amount:  ui.Amount,
+			Address: addr,
+			OutTxID: ui.OutTxID,
+			OutIdx:  ui.OutIdx,
+		}
+	}
+	return dbInputs
 }
 
 // Create chain specific database object from generic TxOutput (TxInput) type, e.g.,
@@ -25,21 +61,12 @@ type OutputCreator interface {
 	CreateOutput(out *database.TxOutput) Output
 }
 
-type InputCreator interface {
-	CreateInput(out *database.TxInput) Input
-}
-
-type InputOutputCreator interface {
-	OutputCreator
-	InputCreator
-}
-
 type IdIndexKey struct {
 	ID    string
 	Index uint32
 }
 
-type OutputMap map[IdIndexKey]Output
+type OutputMap map[IdIndexKey][]Output
 
 type InputList struct {
 	inputs *list.List

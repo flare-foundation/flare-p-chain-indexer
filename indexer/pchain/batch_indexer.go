@@ -173,6 +173,16 @@ func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainTransformSubnetTx, &unsignedTx.BaseTx)
 	case *txs.AddSubnetValidatorTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainAddSubnetValidatorTx, &unsignedTx.BaseTx)
+	case *txs.ConvertSubnetToL1Tx:
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainConvertSubnetToL1Tx, &unsignedTx.BaseTx)
+	case *txs.RegisterL1ValidatorTx:
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainRegisterL1ValidatorTx, &unsignedTx.BaseTx)
+	case *txs.DisableL1ValidatorTx:
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainDisableL1ValidatorTx, &unsignedTx.BaseTx)
+	case *txs.SetL1ValidatorWeightTx:
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainSetL1ValidatorWeightTx, &unsignedTx.BaseTx)
+	case *txs.IncreaseL1ValidatorBalanceTx:
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainIncreaseL1ValidatorBalanceTx, &unsignedTx.BaseTx)
 	default:
 		err = fmt.Errorf("p-chain transaction %v with type %T in block %d is not indexed", dbTx.TxID, unsignedTx, height)
 	}
@@ -257,9 +267,12 @@ func (xi *txBatchIndexer) updateGeneralBaseTx(dbTx *database.PChainTx, txType da
 
 // Persist all entities
 func (xi *txBatchIndexer) PersistEntities(db *gorm.DB) error {
-	ins, err := utils.CastArray[*database.PChainTxInput](xi.inOutIndexer.GetIns())
-	if err != nil {
-		return err
+	updatableIns := xi.inOutIndexer.GetIns()
+	ins := make([]*database.PChainTxInput, 0, 2*len(updatableIns))
+	for _, in := range updatableIns {
+		for _, dbIn := range in.ToDbInputs() {
+			ins = append(ins, &database.PChainTxInput{TxInput: *dbIn})
+		}
 	}
 	outs, err := utils.CastArray[*database.PChainTxOutput](xi.inOutIndexer.GetNewOuts())
 	if err != nil {
@@ -344,7 +357,7 @@ func (xi *txBatchIndexer) updateAddStakerTx(
 	if err != nil {
 		return err
 	}
-	ins := shared.InputsFromTxIns(*dbTx.TxID, txIns, PChainDefaultInputOutputCreator)
+	ins := shared.InputsFromTxIns(*dbTx.TxID, txIns)
 
 	xi.newTxs = append(xi.newTxs, dbTx)
 	xi.inOutIndexer.Add(outs, ins)

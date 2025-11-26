@@ -23,19 +23,3 @@ func (out TxOutput) Tx() string {
 func (out TxOutput) Index() uint32 {
 	return out.Idx
 }
-
-func (in TxInput) Addr() string {
-	return in.Address
-}
-
-func (in TxInput) OutTx() string {
-	return in.OutTxID
-}
-
-func (in TxInput) OutIndex() uint32 {
-	return in.OutIdx
-}
-
-func (in *TxInput) UpdateAddr(addr string) {
-	in.Address = addr
-}
