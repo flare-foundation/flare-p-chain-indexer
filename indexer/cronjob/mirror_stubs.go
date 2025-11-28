@@ -110,6 +110,7 @@ func initMirrorJobContracts(cfg *config.Config) (mirrorContracts, error) {
 	if err != nil {
 		return nil, err
 	}
+	cfg.Mirror.Gas.SetTransactOpts(txOpts)
 
 	return &mirrorContractsCChain{
 		mirroring:     mirroringContract,

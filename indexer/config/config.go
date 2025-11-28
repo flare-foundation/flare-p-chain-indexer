@@ -1,10 +1,13 @@
 package config
 
 import (
-	"flare-indexer/config"
-	"flare-indexer/utils"
+	"math/big"
 	"time"
 
+	"flare-indexer/config"
+	"flare-indexer/utils"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -21,8 +24,26 @@ type Config struct {
 	ContractAddresses ContractAddresses   `toml:"contract_addresses"`
 }
 
+type Gas struct {
+	GasLimit uint64 `toml:"gas_limit" env:"GAS_LIMIT"` // Gas limit to set for the transaction execution (0 = estimate)
+
+	// type 0
+	GasPrice *big.Int `toml:"gas_price" env:", noinit"` // Gas price to use for the transaction execution (nil = gas price oracle)
+
+	// type 2
+	GasFeeCap *big.Int `toml:"gas_fee_cap"  env:", noinit"` // Gas fee cap to use for the 1559 transaction execution (nil = gas price oracle)
+	GasTipCap *big.Int `toml:"gas_tip_cap"  env:", noinit"` // Gas priority fee cap to use for the 1559 transaction execution (nil = gas price oracle)
+}
+
+func (g *Gas) SetTransactOpts(txOpts *bind.TransactOpts) {
+	txOpts.GasLimit = g.GasLimit
+	txOpts.GasPrice = g.GasPrice
+	txOpts.GasFeeCap = g.GasFeeCap
+	txOpts.GasTipCap = g.GasTipCap
+}
+
 type MetricsConfig struct {
-	PrometheusAddress string `toml:"prometheus_address" envconfig:"PROMETHEUS_ADDRESS"`
+	PrometheusAddress string `toml:"prometheus_address" env:"PROMETHEUS_ADDRESS"`
 }
 
 type IndexerConfig struct {
@@ -42,19 +63,23 @@ type CronjobConfig struct {
 type MirrorConfig struct {
 	CronjobConfig
 	config.EpochConfig
+	Gas Gas `toml:"gas" env:", prefix=MIRRORING_"`
 }
 
 type VotingConfig struct {
 	CronjobConfig
 	config.EpochConfig
-	GasLimit uint64 `toml:"gas_limit" envconfig:"VOTING_GAS_LIMIT"`
+	Gas Gas `toml:"gas" env:", prefix=VOTING_"`
+
+	// Deprecated: use Gas.GasLimit instead
+	GasLimit uint64 `toml:"gas_limit"`
 }
 
 type UptimeConfig struct {
 	CronjobConfig
-	Period                         time.Duration   `toml:"period" envconfig:"UPTIME_EPOCH_PERIOD"`
-	Start                          utils.Timestamp `toml:"start" envconfig:"UPTIME_EPOCH_START"`
-	First                          int64           `toml:"first" envconfig:"UPTIME_EPOCH_FIRST"`
+	Period                         time.Duration   `toml:"period" env:"UPTIME_EPOCH_PERIOD"`
+	Start                          utils.Timestamp `toml:"start" env:"UPTIME_EPOCH_START"`
+	First                          int64           `toml:"first" env:"UPTIME_EPOCH_FIRST"`
 	EnableVoting                   bool            `toml:"enable_voting"`
 	UptimeThreshold                float64         `toml:"uptime_threshold"`
 	DeleteOldUptimesEpochThreshold int64           `toml:"delete_old_uptimes_epoch_threshold"`
@@ -62,7 +87,7 @@ type UptimeConfig struct {
 
 type ContractAddresses struct {
 	config.ContractAddresses
-	Mirroring common.Address `toml:"mirroring" envconfig:"MIRRORING_CONTRACT_ADDRESS"`
+	Mirroring common.Address `toml:"mirroring" env:"MIRRORING_CONTRACT_ADDRESS, default=0x0000000000000000000000000000000000000000"`
 }
 
 func newConfig() *Config {

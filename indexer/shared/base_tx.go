@@ -112,17 +112,17 @@ func RewardsOwnerAddress(owner fx.Owner) (string, error) {
 }
 
 // Create inputs to BaseTx. Note that addresses of inputs are are not set. They should be updated from
-// cached outputs, outputs from the database or outputs from chain
-func InputsFromTxIns(txID string, ins []*avax.TransferableInput, creator InputCreator) []Input {
-	txIns := make([]Input, len(ins))
+// cached outputs, outputs from the database or outputs from the chain
+func InputsFromTxIns(txID string, ins []*avax.TransferableInput) []UpdatableInput {
+	txIns := make([]UpdatableInput, len(ins))
 	for ini, in := range ins {
-		txIns[ini] = creator.CreateInput(&database.TxInput{
+		txIns[ini] = &updatableInput{
 			InIdx:   uint32(ini),
 			TxID:    txID,
 			Amount:  in.In.Amount(),
 			OutTxID: in.TxID.String(),
 			OutIdx:  in.OutputIndex,
-		})
+		}
 	}
 	return txIns
 }

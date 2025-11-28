@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	ServicesVersion = "2.2.0"
+	ServicesVersion = "2.3.0"
 )
 
 func main() {

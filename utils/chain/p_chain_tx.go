@@ -3,8 +3,8 @@ package chain
 import (
 	"encoding/hex"
 	"fmt"
-	"time"
 
+	"github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
 	"github.com/ava-labs/avalanchego/utils/hashing"
 	"github.com/ava-labs/avalanchego/vms/components/verify"
@@ -24,7 +24,7 @@ var (
 
 // If block.Parse fails, try to parse as a "pre-fork" block
 func ParsePChainBlock(blockBytes []byte) (block.Block, error) {
-	blk, err := proposerBlock.Parse(blockBytes, time.Time{})
+	blk, err := proposerBlock.Parse(blockBytes, constants.PlatformChainID)
 	var innerBlk block.Block
 	if err == nil {
 		innerBlk, err = block.Parse(block.GenesisCodec, blk.Block())

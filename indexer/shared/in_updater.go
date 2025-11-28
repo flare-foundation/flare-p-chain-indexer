@@ -40,7 +40,7 @@ func (iu *BaseInputUpdater) UpdateInputsFromCache(notUpdated InputList) mapset.S
 	return notUpdated.UpdateWithOutputs(iu.cache)
 }
 
-func NewInputList(inputs []Input) InputList {
+func NewInputList(inputs []UpdatableInput) InputList {
 	list := InputList{list.New()}
 	for _, in := range inputs {
 		list.inputs.PushBack(in)
@@ -55,13 +55,17 @@ func (il InputList) UpdateWithOutputs(outputs utils.CacheBase[IdIndexKey, Output
 	missingTxIds := mapset.NewSet[string]()
 	for e := il.inputs.Front(); e != nil; {
 		next := e.Next()
-		in := e.Value.(Input)
-		if out, ok := outputs.Get(IdIndexKey{in.OutTx(), in.OutIndex()}); ok {
-			if out == nil {
+		in := e.Value.(UpdatableInput)
+		if outs, ok := outputs.Get(IdIndexKey{in.OutTx(), in.OutIndex()}); ok {
+			if len(outs) == 0 {
 				// Genesis tx
-				in.UpdateAddr(in.OutTx())
+				in.UpdateAddresses([]string{in.OutTx()})
 			} else {
-				in.UpdateAddr(out.Addr())
+				addresses := make([]string, len(outs))
+				for i, out := range outs {
+					addresses[i] = out.Addr()
+				}
+				in.UpdateAddresses(addresses)
 			}
 			il.inputs.Remove(e)
 		} else {
@@ -73,14 +77,14 @@ func (il InputList) UpdateWithOutputs(outputs utils.CacheBase[IdIndexKey, Output
 }
 
 func NewOutputMap() OutputMap {
-	return make(map[IdIndexKey]Output)
+	return make(map[IdIndexKey][]Output)
 }
 
 func (om OutputMap) Add(k IdIndexKey, o Output) {
-	om[k] = o
+	om[k] = append(om[k], o)
 }
 
-func (om OutputMap) Get(k IdIndexKey) (v Output, ok bool) {
+func (om OutputMap) Get(k IdIndexKey) (v []Output, ok bool) {
 	v, ok = om[k]
 	return
 }

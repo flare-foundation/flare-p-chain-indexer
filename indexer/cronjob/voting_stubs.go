@@ -58,7 +58,10 @@ func newVotingContractCChain(cfg *config.Config) (votingContract, error) {
 	if err != nil {
 		return nil, err
 	}
-	txOpts.GasLimit = cfg.VotingCronjob.GasLimit
+	cfg.VotingCronjob.Gas.SetTransactOpts(txOpts)
+	if txOpts.GasLimit == 0 {
+		txOpts.GasLimit = cfg.VotingCronjob.GasLimit
+	}
 
 	callOpts := &bind.CallOpts{From: txOpts.From}
 

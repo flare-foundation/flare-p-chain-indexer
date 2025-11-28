@@ -14,8 +14,8 @@ type InputOutputIndexer struct {
 	// outputs should be chain-specific database objects
 	outs []Output
 
-	// Inputs of new transactions, should be chain-specific database objects
-	ins []Input
+	// Inputs of new transactions, not database objects!
+	ins []UpdatableInput
 }
 
 // Return new input output indexer
@@ -30,30 +30,30 @@ func NewInputOutputIndexer(inUpdater InputUpdater) *InputOutputIndexer {
 // Should be called before new batch is started
 func (iox *InputOutputIndexer) Reset(containersLen int) {
 	iox.outs = make([]Output, 0, 2*containersLen)
-	iox.ins = make([]Input, 0, 2*containersLen)
+	iox.ins = make([]UpdatableInput, 0, 2*containersLen)
 	iox.inUpdater.PurgeCache()
 }
 
 func (iox *InputOutputIndexer) AddNewFromBaseTx(
 	txID string,
 	tx *avax.BaseTx,
-	creator InputOutputCreator,
+	creator OutputCreator,
 ) error {
 	outs, err := OutputsFromTxOuts(txID, tx.Outs, 0, creator)
 	if err != nil {
 		return err
 	}
 	iox.outs = append(iox.outs, outs...)
-	iox.ins = append(iox.ins, InputsFromTxIns(txID, tx.Ins, creator)...)
+	iox.ins = append(iox.ins, InputsFromTxIns(txID, tx.Ins)...)
 	return nil
 }
 
-func (iox *InputOutputIndexer) Add(outs []Output, ins []Input) {
+func (iox *InputOutputIndexer) Add(outs []Output, ins []UpdatableInput) {
 	iox.outs = append(iox.outs, outs...)
 	iox.ins = append(iox.ins, ins...)
 }
 
-func (iox *InputOutputIndexer) UpdateInputs(inputs []Input) error {
+func (iox *InputOutputIndexer) UpdateInputs(inputs []UpdatableInput) error {
 	list := NewInputList(inputs)
 	notUpdated, err := iox.inUpdater.UpdateInputs(list)
 	if err != nil {
@@ -70,7 +70,7 @@ func (iox *InputOutputIndexer) ProcessBatch() error {
 	return iox.UpdateInputs(iox.ins)
 }
 
-func (iox *InputOutputIndexer) GetIns() []Input {
+func (iox *InputOutputIndexer) GetIns() []UpdatableInput {
 	return iox.ins
 }
 

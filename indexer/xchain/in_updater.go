@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/ava-labs/avalanchego/vms/avm/txs"
-	"github.com/ava-labs/avalanchego/wallet/chain/x"
+	"github.com/ava-labs/avalanchego/wallet/chain/x/builder"
 	mapset "github.com/deckarep/golang-set/v2"
 	"gorm.io/gorm"
 )
@@ -67,7 +67,7 @@ func (iu *xChainInputUpdater) updateFromChain(
 			continue
 		}
 
-		tx, err := x.Parser.ParseGenesisTx(container.Bytes)
+		tx, err := builder.Parser.ParseGenesisTx(container.Bytes)
 		if err != nil {
 			return nil, err
 		}

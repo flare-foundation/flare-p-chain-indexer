@@ -6,7 +6,7 @@ import (
 
 type CacheBase[K comparable, V any] interface {
 	Add(K, V)
-	Get(K) (V, bool)
+	Get(K) ([]V, bool)
 }
 
 type Cache[K comparable, V any] interface {
@@ -17,7 +17,7 @@ type Cache[K comparable, V any] interface {
 
 // Map object cache
 type cache[K comparable, V any] struct {
-	cacheMap map[K]V
+	cacheMap map[K][]V
 	accessed []K
 
 	sync.RWMutex
@@ -25,7 +25,7 @@ type cache[K comparable, V any] struct {
 
 func NewCache[K comparable, V any]() Cache[K, V] {
 	return &cache[K, V]{
-		cacheMap: make(map[K]V),
+		cacheMap: make(map[K][]V),
 		accessed: nil,
 	}
 }
@@ -34,10 +34,10 @@ func (c *cache[K, V]) Add(k K, v V) {
 	c.Lock()
 	defer c.Unlock()
 
-	c.cacheMap[k] = v
+	c.cacheMap[k] = append(c.cacheMap[k], v)
 }
 
-func (c *cache[K, V]) Get(k K) (V, bool) {
+func (c *cache[K, V]) Get(k K) ([]V, bool) {
 	c.Lock()
 	defer c.Unlock()
 

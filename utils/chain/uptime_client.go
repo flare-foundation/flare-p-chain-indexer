@@ -46,7 +46,7 @@ func (c *AvalancheUptimeClient) GetValidatorStatus() ([]*ValidatorStatus, databa
 	for i, v := range validators {
 		vs[i] = &ValidatorStatus{
 			NodeID:    v.NodeID.String(),
-			Connected: v.Connected,
+			Connected: v.Connected != nil && *v.Connected,
 		}
 	}
 	return vs, status, nil
