@@ -103,14 +103,18 @@ func FetchPChainStakingData(
 		offset = 0
 	}
 
-	query := db.
-		Table("p_chain_txes").
-		Joins("left join p_chain_tx_inputs as inputs on inputs.tx_id = p_chain_txes.tx_id").
-		Where("start_time <= ?", time).Where("? <= end_time", time).
-		Where("type IN ?", txTypes).
-		Group("p_chain_txes.id").
-		Order("p_chain_txes.id").Offset(offset).Limit(limit).
-		Select("p_chain_txes.*, group_concat(distinct(inputs.address)) as input_address").
+	withSubquery := "WITH matched_ids AS (" +
+		"SELECT id FROM p_chain_txes " +
+		"WHERE start_time <= ? AND end_time >= ? AND type IN ? " +
+		"ORDER BY id LIMIT ? OFFSET ?) "
+	query := db.Raw(withSubquery+
+		"SELECT p.*, GROUP_CONCAT(DISTINCT i.address) AS input_address "+
+		"FROM p_chain_txes p "+
+		"LEFT JOIN p_chain_tx_inputs i ON i.tx_id = p.tx_id "+
+		"WHERE p.id IN (SELECT id FROM matched_ids) "+
+		"GROUP BY p.id "+
+		"ORDER BY p.id",
+		time, time, txTypes, limit, offset).
 		Scan(&validatorTxs)
 	return validatorTxs, query.Error
 }
