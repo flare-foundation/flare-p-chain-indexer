@@ -12,6 +12,7 @@ func init() {
 	migrations.Container.Add("2023-02-10-00-00", "Create initial state for P-Chain transactions", createPChainTxState)
 	migrations.Container.Add("2024-11-07-00-00", "Alter type column size in p_chain_txes table", alterPChainTxType)
 	migrations.Container.Add("2025-09-30-00-00", "Delete all P-chain transactions", deleteTransactions)
+	migrations.Container.Add("2026-02-17-00-00", "Add composite index on p_chain_txes for staking queries", addPChainTxesCompositeIndex)
 }
 
 func createPChainTxState(db *gorm.DB) error {
@@ -25,6 +26,10 @@ func createPChainTxState(db *gorm.DB) error {
 
 func alterPChainTxType(db *gorm.DB) error {
 	return db.Exec("ALTER TABLE p_chain_txes CHANGE COLUMN type type VARCHAR(40)").Error
+}
+
+func addPChainTxesCompositeIndex(db *gorm.DB) error {
+	return db.Exec("CREATE INDEX idx_type_end_start_id ON p_chain_txes (type, end_time, start_time, id)").Error
 }
 
 // Delete all P-chain transactions and reset the state to start indexing from the beginning
