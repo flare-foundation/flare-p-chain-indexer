@@ -57,13 +57,13 @@ func (c *AvalancheUptimeClient) Now() time.Time {
 }
 
 type permissionedValidators struct {
-	Validators []*api.PermissionedValidator
+	Validators []*api.PermissionlessValidator
 }
 
 // Get connected validators from P-Chain, returns nil on error
 // Status is 0 if success, -1 on timeout, -2 on other error
 // Error is nil on succes or when rpc call fails in this case status is < 0
-func CallPChainGetConnectedValidators(client jsonrpc.RPCClient) ([]*api.PermissionedValidator, database.UptimeCronjobStatus, error) {
+func CallPChainGetConnectedValidators(client jsonrpc.RPCClient) ([]*api.PermissionlessValidator, database.UptimeCronjobStatus, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), ConnectionTimeout)
 	defer cancel()
 	response, err := client.Call(ctx, "platform.getCurrentValidators")
