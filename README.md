@@ -44,7 +44,7 @@ Below is the list of configuration parameters for all clients. Clients that are 
 
 ```toml
 [db]
-host = "localhost"  # MySql db address, or env variable DB_HOST
+host = "localhost"  # MySql db address, env DB_HOST
 port = 3306         # MySql db port, env DB_PORT
 database = "flare_indexer"    # database name, env DB_DATABASE
 username = "indexeruser"      # db username, env DB_USERNAME
@@ -58,15 +58,16 @@ max_file_size = 10  # max file size before rotating, in MB
 console = true      # also log to console
 
 [metrics]
-prometheus_address = "localhost:2112"  # expose indexer metrics to this address (empty value does not expose this endpoint)
+prometheus_address = "localhost:2112"  # expose indexer metrics to this address (empty value does not expose this endpoint), env PROMETHEUS_ADDRESS
 
 [chain]
-node_url = "http://localhost:9650/"  # node indexer address
-address_hrp = "localflare"  # HRP (human readable part) of chain -- used to properly encode/decode addresses
-chain_id = 162  # chain id
-eth_rpc_url = "http://localhost:9650/ext/C/rpc"  # Ethereum RPC URL
-api_key = ""    # API key (in case the node is protected by API key), adds ?x-apikey=... to all requests if not empty
-private_key_file = "../credentials/pk.txt"  # file containing the private key of an account (for voting and mirroring clients), in hex
+node_url = "http://localhost:9650/"  # node indexer address, env CHAIN_NODE_URL
+address_hrp = "localflare"  # HRP (human readable part) of chain -- used to properly encode/decode addresses, env CHAIN_ADDRESS_HRP
+chain_id = 162  # chain id, env CHAIN_ID
+eth_rpc_url = "http://localhost:9650/ext/C/rpc"  # Ethereum RPC URL, env ETH_RPC_URL
+api_key = ""    # API key (in case the node is protected by API key), adds ?x-apikey=... to all requests if not empty, env API_KEY
+private_key = ""  # private key in hex (deprecated, use private_key_file instead), env PRIVATE_KEY
+private_key_file = "../credentials/pk.txt"  # file containing the private key of an account (for voting and mirroring clients), in hex, env PRIVATE_KEY_FILE
 
 [p_chain_indexer]
 enabled = true          # enable p-chain indexing
@@ -78,8 +79,9 @@ start_index = 0         # start indexing at this block height
 enabled = false         # enable uptime monitoring cronjob
 timeout = "10s"         # call uptime service on every ...
 enable_voting = true    # enable voting for connected validators
-start = "2021-08-01T00:00:00Z"  # start of the uptime voting epoch, supports also unix timestamp as a number
-period = "90s"          # length of the epoch
+start = "2021-08-01T00:00:00Z"  # start of the uptime voting epoch, supports also unix timestamp as a number, env UPTIME_EPOCH_START
+period = "90s"          # length of the epoch, env UPTIME_EPOCH_PERIOD
+first = 0               # first epoch number, env UPTIME_EPOCH_FIRST
 delay = "10"            # min delay in seconds to send the vote after the epoch ends
 uptime_threshold = 0.8  # minimum uptime ratio in the epoch for a validator to be considered connected
 delete_old_uptimes_epoch_threshold = 5  # delete uptimes older than this epoch
@@ -87,11 +89,11 @@ delete_old_uptimes_epoch_threshold = 5  # delete uptimes older than this epoch
 [voting_cronjob]
 enabled = false         # enable voting client
 timeout = "10s"         # check for new epochs every ...
-first = 12345           # first epoch to vote for
+first = 12345           # first epoch to vote for, env EPOCH_FIRST
 delay = "10s"           # min delay in seconds to send the vote after the epoch ends
 
 [voting_cronjob.gas]
-gas_limit = 120000      # Gas limit to set for the transaction execution (empty = estimate)
+gas_limit = 120000      # Gas limit to set for the transaction execution (0 = estimate), env VOTING_GAS_LIMIT
 
 # type 0 transaction options
 # gas_price = ...         # Create type 0 transaction: gas price to use for the transaction execution (empty = gas price oracle)
@@ -107,13 +109,15 @@ first = 12345           # first epoch to mirror
 delay = "10s"           # min delay in seconds to send the vote after the epoch ends
 
 [mirroring_cronjob.gas]
-gas_limit = 1000000
+gas_limit = 1000000     # env MIRRORING_GAS_LIMIT
 # see voting_cronjob.gas for other gas options
 
 [contract_addresses]
-voting = "0xf956df3800379fdFA31D0A45FDD5001D02F4109c"       # voting contract address
-mirroring = "0xE64Df6a7e4f4c277C5299f0FE12D7BbB8A207175"    # mirror contract address
+voting = "0xf956df3800379fdFA31D0A45FDD5001D02F4109c"       # voting contract address, env VOTING_CONTRACT_ADDRESS
+mirroring = "0xE64Df6a7e4f4c277C5299f0FE12D7BbB8A207175"    # mirror contract address, env MIRRORING_CONTRACT_ADDRESS
 ```
+
+**Note:** Environment variables always override values set in the TOML config file.
 
 ### Deployment configuration
 
