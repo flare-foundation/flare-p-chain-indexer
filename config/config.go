@@ -125,7 +125,10 @@ func ParseConfigFile(cfg interface{}, fileName string, allowMissing bool) error 
 }
 
 func ReadEnv(cfg interface{}) error {
-	err := envconfig.Process(context.Background(), cfg)
+	err := envconfig.ProcessWith(context.Background(), &envconfig.Config{
+		Target:           cfg,
+		DefaultOverwrite: true,
+	})
 	if err != nil {
 		return fmt.Errorf("error reading env config: %w", err)
 	}
