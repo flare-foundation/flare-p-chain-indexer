@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ava-labs/libevm/accounts/abi/bind"
+	"github.com/ava-labs/libevm/common"
+	"github.com/ava-labs/libevm/ethclient"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )

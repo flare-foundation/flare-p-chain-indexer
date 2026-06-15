@@ -7,8 +7,8 @@ import (
 	"flare-indexer/config"
 	"flare-indexer/utils"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/ava-labs/libevm/accounts/abi/bind"
+	"github.com/ava-labs/libevm/common"
 )
 
 type Config struct {

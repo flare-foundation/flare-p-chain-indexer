@@ -23,7 +23,7 @@ type IndexerClient interface {
 
 // Implement IndexerClientBase using Avalanche indexer
 type AvalancheIndexerClient struct {
-	client     indexer.Client
+	client     *indexer.Client
 	rpcOptions []rpc.Option
 }
 

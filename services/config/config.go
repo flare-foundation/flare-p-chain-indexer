@@ -3,7 +3,7 @@ package config
 import (
 	"flare-indexer/config"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/ava-labs/libevm/common"
 )
 
 type Config struct {
