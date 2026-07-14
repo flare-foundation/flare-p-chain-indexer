@@ -6,6 +6,7 @@ import (
 	"flare-indexer/indexer/context"
 	"flare-indexer/logger"
 	"flare-indexer/utils"
+	"flare-indexer/utils/chain"
 	"flare-indexer/utils/contracts/voting"
 	"flare-indexer/utils/staking"
 	"fmt"
@@ -14,8 +15,8 @@ import (
 	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/libevm/accounts/abi/bind"
 	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -44,6 +45,7 @@ type uptimeVotingCronjob struct {
 
 	votingContract *voting.Voting
 	txOpts         *bind.TransactOpts
+	txVerifier     *chain.TxVerifier
 
 	db *gorm.DB
 
@@ -91,6 +93,7 @@ func NewUptimeVotingCronjob(ctx context.IndexerContext) (*uptimeVotingCronjob, e
 		uptimeThreshold:                config.UptimeThreshold,
 		votingContract:                 votingContract,
 		txOpts:                         txOpts,
+		txVerifier:                     chain.NewTxVerifier(eth),
 		db:                             ctx.DB(),
 	}, nil
 
@@ -269,8 +272,16 @@ func (c *uptimeVotingCronjob) submitVotes(epoch int64, nodeAggregations []*datab
 		}
 		nodeIDs = append(nodeIDs, nodeID)
 	}
-	_, err := c.votingContract.SubmitValidatorUptimeVote(c.txOpts, big.NewInt(epoch), nodeIDs)
-	return err
+	tx, err := c.votingContract.SubmitValidatorUptimeVote(c.txOpts, big.NewInt(epoch), nodeIDs)
+	if err != nil {
+		return err
+	}
+	err = c.txVerifier.WaitUntilMined(c.txOpts.From, tx, chain.DefaultTxTimeout)
+	if err != nil {
+		return err
+	}
+	logger.Debug("Mined uptime voting tx %s", tx.Hash().Hex())
+	return nil
 }
 
 func (c *uptimeVotingCronjob) deleteOldUptimes() error {

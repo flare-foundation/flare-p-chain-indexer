@@ -11,7 +11,7 @@ import (
 	"github.com/ava-labs/avalanchego/vms/platformvm/block"
 	proposerBlock "github.com/ava-labs/avalanchego/vms/proposervm/block"
 	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
-	"github.com/ava-labs/coreth/accounts"
+	"github.com/ava-labs/libevm/accounts"
 	"github.com/pkg/errors"
 )
 

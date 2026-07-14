@@ -61,9 +61,11 @@ func (il InputList) UpdateWithOutputs(outputs utils.CacheBase[IdIndexKey, Output
 				// Genesis tx
 				in.UpdateAddresses([]string{in.OutTx()})
 			} else {
-				addresses := make([]string, len(outs))
-				for i, out := range outs {
-					addresses[i] = out.Addr()
+				addresses := make([]string, 0, len(outs))
+				for _, out := range outs {
+					if out != nil {
+						addresses = append(addresses, out.Addr())
+					}
 				}
 				in.UpdateAddresses(addresses)
 			}

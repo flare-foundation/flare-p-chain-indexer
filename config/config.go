@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ava-labs/libevm/common"
+	"github.com/ava-labs/libevm/ethclient"
 	"github.com/sethvargo/go-envconfig"
 )
 

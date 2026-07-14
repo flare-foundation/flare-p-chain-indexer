@@ -6,7 +6,7 @@ import (
 	"flare-indexer/database"
 	"flare-indexer/services/config"
 
-	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ava-labs/libevm/ethclient"
 
 	"gorm.io/gorm"
 )

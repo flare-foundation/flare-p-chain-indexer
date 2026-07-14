@@ -5,7 +5,7 @@ import (
 	"flare-indexer/utils/contracts/voting"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ava-labs/libevm/accounts/abi/bind"
 )
 
 type EpochInfo struct {

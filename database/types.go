@@ -25,6 +25,7 @@ const (
 	PChainAddSubnetValidatorTx         PChainTxType = "ADD_SUBNET_VALIDATOR_TX"
 	PChainRemoveSubnetValidatorTx      PChainTxType = "REMOVE_SUBNET_VALIDATOR_TX"
 	PChainTransformSubnetTx            PChainTxType = "TRANSFORM_SUBNET_TX"
+	PChainTransferSubnetOwnershipTx    PChainTxType = "TRANSFER_SUBNET_OWNERSHIP_TX"
 	PChainAddPermissionlessValidatorTx PChainTxType = "ADD_PERMISSIONLESS_VALIDATOR_TX"
 	PChainAddPermissionlessDelegatorTx PChainTxType = "ADD_PERMISSIONLESS_DELEGATOR_TX"
 	PChainBaseTx                       PChainTxType = "BASE_TX"

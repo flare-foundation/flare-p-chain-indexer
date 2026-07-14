@@ -17,9 +17,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ava-labs/libevm/accounts/abi/bind"
+	"github.com/ava-labs/libevm/common"
 	"github.com/bradleyjkemp/cupaloy"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 

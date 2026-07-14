@@ -6,8 +6,8 @@ import (
 
 	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
 	"github.com/ava-labs/avalanchego/utils/formatting/address"
-	"github.com/ethereum/go-ethereum/common"
-	ethCrypto "github.com/ethereum/go-ethereum/crypto"
+	"github.com/ava-labs/libevm/common"
+	ethCrypto "github.com/ava-labs/libevm/crypto"
 	"github.com/pkg/errors"
 )
 

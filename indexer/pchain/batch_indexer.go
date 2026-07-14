@@ -173,6 +173,8 @@ func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainTransformSubnetTx, &unsignedTx.BaseTx)
 	case *txs.AddSubnetValidatorTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainAddSubnetValidatorTx, &unsignedTx.BaseTx)
+	case *txs.TransferSubnetOwnershipTx:
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainTransferSubnetOwnershipTx, &unsignedTx.BaseTx)
 	case *txs.ConvertSubnetToL1Tx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainConvertSubnetToL1Tx, &unsignedTx.BaseTx)
 	case *txs.RegisterL1ValidatorTx:
