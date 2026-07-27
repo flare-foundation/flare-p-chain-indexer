@@ -1,8 +1,12 @@
 package shared
 
 import (
+	"bytes"
 	"container/list"
+	"flare-indexer/logger"
 	"flare-indexer/utils"
+	"flare-indexer/utils/chain"
+	"sort"
 
 	mapset "github.com/deckarep/golang-set/v2"
 )
@@ -76,6 +80,59 @@ func (il InputList) UpdateWithOutputs(outputs utils.CacheBase[IdIndexKey, Output
 		e = next
 	}
 	return missingTxIds
+}
+
+// Keep only the owners of a consumed output that authorized the spend, i.e. those the
+// input's signature indices point at. Spending a multi-owner output does not require a
+// signature from every listed owner, so without this an unrelated co-owner could be
+// recorded as the spender and end up as the owner of a mirrored stake.
+func selectSigners(addresses []string, sigIndices []uint32, outTxID string, outIdx uint32) []string {
+	// Nothing to disambiguate: a single owner, or a genesis input whose address is the
+	// output transaction id rather than a bech32 address.
+	if len(addresses) <= 1 {
+		return addresses
+	}
+
+	if len(sigIndices) == 0 {
+		logger.Warn("no signature indices for output %s:%d with %d owners, keeping all of them",
+			outTxID, outIdx, len(addresses))
+		return addresses
+	}
+
+	type owner struct {
+		raw       [20]byte
+		formatted string
+	}
+	owners := make([]owner, len(addresses))
+	for i, address := range addresses {
+		raw, err := chain.ParseAddress(address)
+		if err != nil {
+			logger.Warn("unable to parse address %s of output %s:%d, keeping all owners: %s",
+				address, outTxID, outIdx, err)
+			return addresses
+		}
+		owners[i] = owner{raw: raw, formatted: address}
+	}
+	// Signature indices are positions in the output's owner array, which avalanchego
+	// requires to be sorted by the raw 20 byte address value. The owners reach us in
+	// whatever order the consumed output was resolved in, which need not match -- rows
+	// read back from the database are unordered -- so the on-chain order has to be
+	// restored before indexing into it. Sorting the formatted bech32 addresses is not
+	// equivalent: its character set is not in ASCII order, so it selects a different owner.
+	sort.Slice(owners, func(i, j int) bool {
+		return bytes.Compare(owners[i].raw[:], owners[j].raw[:]) < 0
+	})
+
+	signers := make([]string, len(sigIndices))
+	for i, sigIndex := range sigIndices {
+		if sigIndex >= uint32(len(owners)) {
+			logger.Warn("signature index %d out of range for output %s:%d with %d owners, keeping all of them",
+				sigIndex, outTxID, outIdx, len(owners))
+			return addresses
+		}
+		signers[i] = owners[sigIndex].formatted
+	}
+	return signers
 }
 
 func NewOutputMap() OutputMap {
