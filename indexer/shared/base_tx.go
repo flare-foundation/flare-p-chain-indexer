@@ -8,6 +8,7 @@ import (
 	"github.com/ava-labs/avalanchego/vms/components/avax"
 	"github.com/ava-labs/avalanchego/vms/components/verify"
 	"github.com/ava-labs/avalanchego/vms/platformvm/fx"
+	"github.com/ava-labs/avalanchego/vms/platformvm/stakeable"
 	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
 )
 
@@ -117,12 +118,26 @@ func InputsFromTxIns(txID string, ins []*avax.TransferableInput) []UpdatableInpu
 	txIns := make([]UpdatableInput, len(ins))
 	for ini, in := range ins {
 		txIns[ini] = &updatableInput{
-			InIdx:   uint32(ini),
-			TxID:    txID,
-			Amount:  in.In.Amount(),
-			OutTxID: in.TxID.String(),
-			OutIdx:  in.OutputIndex,
+			InIdx:      uint32(ini),
+			TxID:       txID,
+			Amount:     in.In.Amount(),
+			SigIndices: sigIndicesOf(in.In),
+			OutTxID:    in.TxID.String(),
+			OutIdx:     in.OutputIndex,
 		}
 	}
 	return txIns
+}
+
+// Return the owner slots of the consumed output that authorized the spend, or nil if
+// the input is of a type we cannot parse. On the P-chain a transfer input can be
+// wrapped in a stakeable lock, which avalanchego does not allow to be nested.
+func sigIndicesOf(in avax.TransferableIn) []uint32 {
+	if lockedIn, ok := in.(*stakeable.LockIn); ok {
+		in = lockedIn.TransferableIn
+	}
+	if transferIn, ok := in.(*secp256k1fx.TransferInput); ok {
+		return transferIn.SigIndices
+	}
+	return nil
 }
