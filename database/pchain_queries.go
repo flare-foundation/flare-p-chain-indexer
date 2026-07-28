@@ -5,12 +5,22 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ava-labs/avalanchego/utils/constants"
 	"golang.org/x/exp/slices"
 	"gorm.io/gorm"
 )
 
 var (
 	errInvalidTransactionType = fmt.Errorf("invalid transaction type")
+
+	// Only primary-network ("mainnet") stakes may ever be voted on, mirrored, or
+	// uptime-voted. Elastic subnets cannot be created on current chains and none
+	// exist, but a subnet stake would otherwise satisfy the tx-type filters and be
+	// mirrored as primary-network voting power -- exclude it by construction. The
+	// empty string (and, in the queries, NULL) covers rows indexed before the
+	// subnet_id column existed; a transaction indexed by current code always has the
+	// subnet id set.
+	votableSubnetIDs = []string{constants.PrimaryNetworkID.String(), ""}
 )
 
 func FetchPChainTxOutputs(db *gorm.DB, ids []string) ([]PChainTxOutput, error) {
@@ -246,6 +256,7 @@ func FetchPChainVotingData(db *gorm.DB, from time.Time, to time.Time) ([]PChainT
 		Table("p_chain_txes").
 		Joins("left join p_chain_tx_inputs as inputs on inputs.tx_id = p_chain_txes.tx_id").
 		Where("type IN ?", PChainStakingTransactions).
+		Where("subnet_id IN ? OR subnet_id IS NULL", votableSubnetIDs).
 		Where("start_time >= ?", from).Where("start_time < ?", to).
 		Select("p_chain_txes.*, inputs.address as input_address, inputs.in_idx as input_index").
 		Scan(&data)
@@ -266,6 +277,7 @@ func GetPChainTxsForEpoch(in *GetPChainTxsForEpochInput) ([]PChainTxData, error)
 		Where("p_chain_txes.start_time >= ?", in.StartTimestamp).
 		Where("p_chain_txes.start_time < ?", in.EndTimestamp).
 		Where("p_chain_txes.type IN ?", PChainStakingTransactions).
+		Where("p_chain_txes.subnet_id IN ? OR p_chain_txes.subnet_id IS NULL", votableSubnetIDs).
 		Select("p_chain_txes.*, inputs.address as input_address, inputs.in_idx as input_index").
 		Find(&txs).
 		Error
@@ -276,7 +288,8 @@ func GetPChainTxsForEpoch(in *GetPChainTxsForEpochInput) ([]PChainTxData, error)
 	return txs, nil
 }
 
-// Fetches all P-chain staking transactions of type txType intersecting the given time interval
+// Fetches all primary-network P-chain staking transactions of type txType
+// intersecting the given time interval
 func FetchNodeStakingIntervals(db *gorm.DB, txTypes []PChainTxType, startTime time.Time, endTime time.Time) ([]PChainTx, error) {
 	for _, txType := range txTypes {
 		if !slices.Contains(PChainStakingTransactions[:], txType) {
@@ -286,6 +299,7 @@ func FetchNodeStakingIntervals(db *gorm.DB, txTypes []PChainTxType, startTime ti
 
 	var txs []PChainTx
 	err := db.Where("type IN ?", txTypes).
+		Where("subnet_id IN ? OR subnet_id IS NULL", votableSubnetIDs).
 		Where("start_time <= ?", endTime).
 		Where("end_time >= ?", startTime).
 		Find(&txs).Error
