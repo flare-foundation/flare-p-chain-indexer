@@ -13,6 +13,7 @@ func init() {
 	migrations.Container.Add("2024-11-07-00-00", "Alter type column size in p_chain_txes table", alterPChainTxType)
 	migrations.Container.Add("2025-09-30-00-00", "Delete all P-chain transactions", deleteTransactions)
 	migrations.Container.Add("2026-02-17-00-00", "Add composite index on p_chain_txes for staking queries", addPChainTxesCompositeIndex)
+	migrations.Container.Add("2026-07-28-00-00", "Add composite index on uptime_cronjobs for per-node uptime aggregation", addUptimeCronjobsCompositeIndex)
 }
 
 func createPChainTxState(db *gorm.DB) error {
@@ -49,4 +50,9 @@ func deleteTransactions(db *gorm.DB) error {
 		}
 		return nil
 	})
+}
+
+// To speed-up uptime aggregations
+func addUptimeCronjobsCompositeIndex(db *gorm.DB) error {
+	return db.Exec("CREATE INDEX idx_node_id_timestamp ON uptime_cronjobs (node_id, `timestamp`)").Error
 }
