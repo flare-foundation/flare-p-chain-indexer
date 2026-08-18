@@ -28,6 +28,8 @@ type PChainTx struct {
 	Bytes                  []byte          `gorm:"type:mediumblob"`
 	FeePercentage          uint32          // Fee percentage (in case of add validator transaction)
 	BlockTime              *time.Time      `gorm:"index"` // Block time, non-null from Banff block activation on (Avalanche 1.9.0)
+	Period                 *uint64         // Period (in case of add auto renewed validator transaction)
+	RefTxID                *string         `gorm:"type:varchar(50)"` // Reference transaction ID (in case of set auto renewed validator config transaction)
 }
 
 type PChainTxInput struct {

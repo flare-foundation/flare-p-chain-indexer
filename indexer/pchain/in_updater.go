@@ -79,6 +79,12 @@ func (iu *pChainInputUpdater) updateFromChain(
 			outs, err = iu.getAddStakerTxAndRewardTxOutputs(txId, unsignedTx)
 		case *txs.AddPermissionlessDelegatorTx:
 			outs, err = iu.getAddStakerTxAndRewardTxOutputs(txId, unsignedTx)
+		case *txs.AddAutoRenewedValidatorTx:
+			outs, err = iu.getAddStakerTxAndRewardTxOutputs(txId, unsignedTx)
+		case *txs.RewardAutoRenewedValidatorTx:
+			// Reward UTXOs of a RewardAutoRenewedValidatorTx are stored under
+			// the reward tx's own id (it has no inputs or outputs of its own)
+			outs, err = getRewardOutputs(iu.client, txId)
 		default:
 			txOuts := tx.Unsigned.Outputs()
 			outs, err = shared.OutputsFromTxOuts(txId, txOuts, 0, PChainDefaultInputOutputCreator)
