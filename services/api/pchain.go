@@ -15,6 +15,8 @@ type ApiPChainTx struct {
 	EndTime     *time.Time            `json:"endTime"`
 	Weight      uint64                `json:"weight"`
 	BlockTime   *time.Time            `json:"blockTime"`
+	Period      *uint64               `json:"period"`
+	RefTxID     *string               `json:"refTxID"`
 
 	Inputs  []ApiPChainTxInput  `json:"inputs"`
 	Outputs []ApiPChainTxOutput `json:"outputs"`
@@ -42,6 +44,8 @@ func NewApiPChainTx(tx *database.PChainTx, inputs []database.PChainTxInput, outp
 		EndTime:     tx.EndTime,
 		Weight:      tx.Weight,
 		BlockTime:   tx.BlockTime,
+		Period:      tx.Period,
+		RefTxID:     tx.RefTxID,
 		Inputs:      newApiPChainInputs(inputs),
 		Outputs:     newApiPChainOutputs(outputs),
 	}
