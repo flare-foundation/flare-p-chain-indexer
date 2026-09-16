@@ -4,7 +4,11 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/formatting/address"
+	"github.com/ava-labs/avalanchego/vms/platformvm/block"
+	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
+	proposerBlock "github.com/ava-labs/avalanchego/vms/proposervm/block"
 )
 
 func TestPublicKeysFromProposalBlock(t *testing.T) {
@@ -54,7 +58,7 @@ func TestPublicKeysFromStandardBlockEth(t *testing.T) {
 }
 
 func TestPublicKeysFromStandardBlockAvalanche(t *testing.T) {
-	txBytes, err := hex.DecodeString("00000000000062C6CAE4B7DE2BC16B0BA15475FD2AF82CE46DDF9780AA9063232CF4187701F60000000067506E350000000000001AD800000000000001BB0000000000200000000067506E35C715FF0AE8AA6CE74655B67EC3128C4ED281ADCE924C3B727FDF41D31C1FE4400000000000001ADA000000010000000E00000072000000000000000000000000000000000000000000000000000000000000000000000000000000019AAC305E8A7F9276CA14B806C02562456EFE3C2B252967C2EDAC7473C468DB1D0000000058734F94AF871C3D131B56131B6FB7A0291EACADD261E69DFB42A9CDF6F7FDDD0000000500002D79883D20000000000100000000000000004E15BC646C48B65A576623C7E4689200C0E3EF2D0000000067506E70000000006762E37000002D79883D20000000000158734F94AF871C3D131B56131B6FB7A0291EACADD261E69DFB42A9CDF6F7FDDD0000000700002D79883D20000000000000000000000000010000000154819F71826B5D65E171C3691DC508C6690F1BE60000000B0000000000000000000000010000000154819F71826B5D65E171C3691DC508C6690F1BE600000001000000090000000174F08C887C7DE36E1AE1C61390314129A68D0E1F19BE32445CE1EC5AA8D68757016D56010C794B9ECDC5B3EB4DDE7E5B7E7EDB6FE82CBFF939A04066774C51AA0000000000")
+	txBytes, err := hex.DecodeString(banffStandardBlockAvalancheHex)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,4 +88,58 @@ func addressToByte20(addr string) ([20]byte, error) {
 	}
 	copy(address20[:], address)
 	return address20, nil
+}
+
+// Coston2 Banff standard block used in TestPublicKeysFromStandardBlockAvalanche and
+// TestPublicKeysFromBanffProposalBlock
+const banffStandardBlockAvalancheHex = "00000000000062C6CAE4B7DE2BC16B0BA15475FD2AF82CE46DDF9780AA9063232CF4187701F60000000067506E350000000000001AD800000000000001BB0000000000200000000067506E35C715FF0AE8AA6CE74655B67EC3128C4ED281ADCE924C3B727FDF41D31C1FE4400000000000001ADA000000010000000E00000072000000000000000000000000000000000000000000000000000000000000000000000000000000019AAC305E8A7F9276CA14B806C02562456EFE3C2B252967C2EDAC7473C468DB1D0000000058734F94AF871C3D131B56131B6FB7A0291EACADD261E69DFB42A9CDF6F7FDDD0000000500002D79883D20000000000100000000000000004E15BC646C48B65A576623C7E4689200C0E3EF2D0000000067506E70000000006762E37000002D79883D20000000000158734F94AF871C3D131B56131B6FB7A0291EACADD261E69DFB42A9CDF6F7FDDD0000000700002D79883D20000000000000000000000000010000000154819F71826B5D65E171C3691DC508C6690F1BE60000000B0000000000000000000000010000000154819F71826B5D65E171C3691DC508C6690F1BE600000001000000090000000174F08C887C7DE36E1AE1C61390314129A68D0E1F19BE32445CE1EC5AA8D68757016D56010C794B9ECDC5B3EB4DDE7E5B7E7EDB6FE82CBFF939A04066774C51AA0000000000"
+
+// Since Durango, the P-chain block builder packs the pending decision transactions (staking
+// transactions included) into a BanffProposalBlock whenever a staker reward is due in the same
+// block. Re-pack the transactions of the Banff standard block above the same way the builder does
+// (block.NewBanffProposalBlock with a RewardValidatorTx as the proposal transaction) and check that
+// the public key is still recovered.
+func TestPublicKeysFromBanffProposalBlock(t *testing.T) {
+	stdBlkBytes, err := hex.DecodeString(banffStandardBlockAvalancheHex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	innerBlk, err := ParsePChainBlock(stdBlkBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdBlk, ok := innerBlk.(*block.BanffStandardBlock)
+	if !ok {
+		t.Fatalf("expected *block.BanffStandardBlock, got %T", innerBlk)
+	}
+
+	rewardTx, err := txs.NewSigned(&txs.RewardValidatorTx{TxID: ids.GenerateTestID()}, txs.Codec, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proposalBlk, err := block.NewBanffProposalBlock(stdBlk.Timestamp(), stdBlk.Parent(), stdBlk.Height(), rewardTx, stdBlk.Txs())
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The indexer stores blocks as delivered by the index API, i.e. wrapped in a proposervm block
+	wrappedBlk, err := proposerBlock.BuildUnsigned(ids.Empty, stdBlk.Timestamp(), 0, proposerBlock.Epoch{}, proposalBlk.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	address := "costwo12jqe7uvzddwktct3cd53m3ggce5s7xlxf2zklw"
+	addressBytes, err := addressToByte20(address)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pk, err := PublicKeyFromPChainBlock("UAHoUQRCyrguiD2L5qaUyuTXEu8WZCQKEietGbno5AnEoS1Bu", addressBytes, 0, wrappedBlk.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ethAddress := PublicKeyToEthAddress(pk)
+	if ethAddress.Hex() != "0x9327a86e5942da03Bd397576546ABBe7eAA4bd03" {
+		t.Fatal("Wrong address")
+	}
 }
