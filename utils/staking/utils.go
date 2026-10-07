@@ -158,7 +158,9 @@ func encodeTreeItem(tx *database.PChainTxData) ([]byte, error) {
 
 func GetTxType(txType database.PChainTxType) (uint8, error) {
 	switch txType {
-	case database.PChainAddValidatorTx, database.PChainAddPermissionlessValidatorTx:
+	case database.PChainAddValidatorTx, database.PChainAddPermissionlessValidatorTx,
+		// a reward auto renewed validator tx row describes the renewed validation cycle of the validator
+		database.PChainAddAutoRenewedValidatorTx, database.PChainRewardAutoRenewedValidatorTx:
 		return 0, nil
 	case database.PChainAddDelegatorTx, database.PChainAddPermissionlessDelegatorTx:
 		return 1, nil

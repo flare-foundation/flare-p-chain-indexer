@@ -165,3 +165,53 @@ func initEpochCronjob() epochCronjob {
 
 	return newEpochCronjob(&cronjobCfg, epochInfo)
 }
+
+// Auto-renewed validators are voted on like any other stake: the add tx row for the first validation
+// cycle and a reward tx row for every renewed cycle, each a leaf of the epoch its start time falls in
+func TestVotesAutoRenewedCycles(t *testing.T) {
+	epochs := initEpochCronjob()
+
+	addTx := newTxData(0)
+	addTx.Type = database.PChainAddAutoRenewedValidatorTx
+	renewedCycle := newTxData(1)
+	renewedCycle.Type = database.PChainRewardAutoRenewedValidatorTx
+	renewedCycle.RewardTxID = *addTx.TxID
+
+	db := votingDBTest{
+		states: map[string]database.State{
+			pchain.StateName: {
+				Updated:        time.Now(),
+				NextDBIndex:    3,
+				LastChainIndex: 2,
+			},
+		},
+		votingData: map[timeRange][]database.PChainTxData{
+			timeRangeForEpoch(epochs, 1): {addTx},
+			timeRangeForEpoch(epochs, 2): {renewedCycle},
+		},
+	}
+
+	contract := votingContractTest{
+		shouldVote: map[int64]bool{
+			1: true,
+			2: true,
+		},
+		submittedVotes: make(map[int64][32]byte),
+	}
+
+	cronjob := votingCronjob{
+		db:           &db,
+		contract:     &contract,
+		epochCronjob: epochs,
+	}
+
+	err := cronjob.Call()
+	require.NoError(t, err)
+
+	for epoch, txs := range map[int64][]database.PChainTxData{1: {addTx}, 2: {renewedCycle}} {
+		expectedRoot, err := staking.GetMerkleRoot(txs)
+		require.NoError(t, err)
+		require.Equal(t, [32]byte(expectedRoot), contract.submittedVotes[epoch], "epoch %d", epoch)
+	}
+	require.NotEqual(t, contract.submittedVotes[1], contract.submittedVotes[2], "a renewed cycle is a distinct leaf")
+}

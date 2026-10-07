@@ -1,0 +1,24 @@
+([]cronjob.mirrorStakeInput) (len=1) {
+  (cronjob.mirrorStakeInput) {
+    stakeData: (*mirroring.IPChainStakeMirrorVerifierPChainStake)({
+      TxId: ([32]uint8) (len=32) {
+        00000000  68 26 9b 8a f1 22 a9 cb  84 34 ea 5b 43 3f 27 68  |h&..."...4.[C?'h|
+        00000010  c6 9e da 8a c1 9f 38 0d  41 2a 3f ea ea 3f 51 98  |......8.A*?..?Q.|
+      },
+      StakingType: (uint8) 0,
+      InputAddress: ([20]uint8) (len=20) {
+        00000000  3f 57 f7 e4 b4 75 09 bd  2c fc a1 07 20 8a 34 60  |?W...u..,... .4`|
+        00000010  00 23 24 43                                       |.#$C|
+      },
+      NodeId: ([20]uint8) (len=20) {
+        00000000  7e d1 5d 3a 6e db 46 93  2f 13 65 0b 8d 93 a9 c0  |~.]:n.F./.e.....|
+        00000010  ca ae ef 8f                                       |....|
+      },
+      StartTime: (uint64) 1672531740,
+      EndTime: (uint64) 1672711200,
+      Weight: (uint64) 1000
+    }),
+    merkleProof: ([][32]uint8) {
+    }
+  }
+}

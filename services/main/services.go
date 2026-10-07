@@ -37,9 +37,6 @@ func main() {
 	routes.AddTransactionRoutes(router, ctx, epochs)
 	routes.AddMirroringRoutes(router, ctx, epochs)
 
-	// Disabled -- state connector routes are currently not used
-	// routes.AddQueryRoutes(router, ctx)
-
 	router.Finalize()
 
 	cors := cors.New(cors.Options{

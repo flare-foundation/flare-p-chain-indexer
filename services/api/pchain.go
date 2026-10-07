@@ -16,7 +16,7 @@ type ApiPChainTx struct {
 	Weight      uint64                `json:"weight"`
 	BlockTime   *time.Time            `json:"blockTime"`
 	Period      *uint64               `json:"period"`
-	RefTxID     *string               `json:"refTxID"`
+	RefTxID     *string               `json:"refTxID"` // Referenced transaction: the staker tx of a reward tx, the add tx of a set auto renewed validator config tx
 
 	Inputs  []ApiPChainTxInput  `json:"inputs"`
 	Outputs []ApiPChainTxOutput `json:"outputs"`
@@ -45,7 +45,7 @@ func NewApiPChainTx(tx *database.PChainTx, inputs []database.PChainTxInput, outp
 		Weight:      tx.Weight,
 		BlockTime:   tx.BlockTime,
 		Period:      tx.Period,
-		RefTxID:     tx.RefTxID,
+		RefTxID:     refTxID(tx),
 		Inputs:      newApiPChainInputs(inputs),
 		Outputs:     newApiPChainOutputs(outputs),
 	}
@@ -83,6 +83,8 @@ type ApiPChainTxListItem struct {
 	StartTime    *time.Time            `json:"startTime"`
 	EndTime      *time.Time            `json:"endTime"`
 	Weight       uint64                `json:"weight"`
+	Period       *uint64               `json:"period"`
+	RefTxID      *string               `json:"refTxID"`
 	InputAddress string                `json:"inputAddress"`
 	InputIndex   uint32                `json:"inputIndex"`
 }
@@ -97,6 +99,8 @@ func newApiPChainTxListItem(tx *database.PChainTxData) ApiPChainTxListItem {
 		StartTime:    tx.StartTime,
 		EndTime:      tx.EndTime,
 		Weight:       tx.Weight,
+		Period:       tx.Period,
+		RefTxID:      refTxID(&tx.PChainTx),
 		InputAddress: tx.InputAddress,
 		InputIndex:   tx.InputIndex,
 	}
@@ -108,4 +112,13 @@ func NewApiPChainTxList(txs []database.PChainTxData) []ApiPChainTxListItem {
 		result[i] = newApiPChainTxListItem(&txs[i])
 	}
 	return result
+}
+
+// Referenced transaction of a reward (auto renewed) validator tx (the staker tx) or of a set auto renewed
+// validator config tx (the add auto renewed validator tx); nil for other transactions
+func refTxID(tx *database.PChainTx) *string {
+	if tx.RewardTxID == "" {
+		return nil
+	}
+	return &tx.RewardTxID
 }

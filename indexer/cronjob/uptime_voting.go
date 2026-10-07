@@ -314,7 +314,12 @@ type nodeStakingInterval struct {
 func fetchNodeStakingIntervals(db *gorm.DB, start time.Time, end time.Time) ([]nodeStakingInterval, error) {
 	txs, err := database.FetchNodeStakingIntervals(
 		db,
-		[]database.PChainTxType{database.PChainAddValidatorTx, database.PChainAddPermissionlessValidatorTx},
+		[]database.PChainTxType{
+			database.PChainAddValidatorTx, database.PChainAddPermissionlessValidatorTx,
+			// auto-renewed validators: the first validation cycle is on the add tx row, every renewed
+			// cycle on the row of the reward tx that started it
+			database.PChainAddAutoRenewedValidatorTx, database.PChainRewardAutoRenewedValidatorTx,
+		},
 		start, end,
 	)
 	if err != nil {

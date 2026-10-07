@@ -141,8 +141,6 @@ func (c *votingCronjob) Call() error {
 
 // Return true if the vote was submitted, and false if shouldVote returned false
 func (c *votingCronjob) submitVotes(e int64, votingData []database.PChainTxData) error {
-	votingData = staking.DedupeTxs(votingData)
-
 	shouldVote, err := c.contract.ShouldVote(big.NewInt(e))
 	if err != nil {
 		return err
@@ -152,6 +150,7 @@ func (c *votingCronjob) submitVotes(e int64, votingData []database.PChainTxData)
 		return nil
 	}
 
+	votingData = staking.DedupeTxs(votingData)
 	var merkleRoot common.Hash
 	if len(votingData) == 0 {
 		merkleRoot = zeroBytesHash

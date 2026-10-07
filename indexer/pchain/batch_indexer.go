@@ -5,6 +5,7 @@ import (
 	"flare-indexer/database"
 	"flare-indexer/indexer/context"
 	"flare-indexer/indexer/shared"
+	"flare-indexer/logger"
 	"flare-indexer/utils"
 	"flare-indexer/utils/chain"
 	"fmt"
@@ -216,29 +217,42 @@ func (xi *txBatchIndexer) addEmptyTx(container *indexer.Container, blockType dat
 // rewardUTXOsTxID is the id under which the chain stores this reward's UTXOs:
 // the staker's txID for RewardValidatorTx, the reward tx's own id for
 // RewardAutoRenewedValidatorTx
-func (xi *txBatchIndexer) updateRewardTx(dbTx *database.PChainTx, tx RewardTx, rewardUTXOsTxID string) error {
+func (xi *txBatchIndexer) updateRewardTx(dbTx *database.PChainTx, tx RewardTx, rewardUTXOsTxID string) ([]shared.Output, error) {
 	dbTx.RewardTxID = tx.StakerTxID().String()
 	outs, err := getRewardOutputs(xi.rpcClient, rewardUTXOsTxID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	xi.inOutIndexer.Add(outs, nil)
 	xi.newTxs = append(xi.newTxs, dbTx)
-	return nil
+	return outs, nil
 }
 
 func (xi *txBatchIndexer) updateRewardValidatorTx(dbTx *database.PChainTx, tx *txs.RewardValidatorTx) error {
 	dbTx.Type = database.PChainRewardValidatorTx
 
-	return xi.updateRewardTx(dbTx, tx, tx.StakerTxID().String())
+	_, err := xi.updateRewardTx(dbTx, tx, tx.StakerTxID().String())
+	return err
 }
 
 func (xi *txBatchIndexer) updateRewardAutoRenewedValidatorTx(dbTx *database.PChainTx, tx *txs.RewardAutoRenewedValidatorTx) error {
 	timestamp := time.Unix(int64(tx.Timestamp), 0)
 	dbTx.Type = database.PChainRewardAutoRenewedValidatorTx
 	dbTx.Time = &timestamp
+	// Period, StartTime, EndTime, NodeID and Weight of the renewed validation cycle are set once the
+	// commit/abort block of the proposal block is indexed, see completeAutoRenewedRewardTxs
 
-	return xi.updateRewardTx(dbTx, tx, *dbTx.TxID)
+	outs, err := xi.updateRewardTx(dbTx, tx, *dbTx.TxID)
+	if err != nil {
+		return err
+	}
+	if len(outs) > 0 {
+		// Staking rewards exist on this chain: a share of them may be restaked at renewal, which the
+		// indexer does not track (the weight of the renewed cycle is copied from the add tx)
+		logger.Warn("reward auto renewed validator tx %s minted %d reward UTXOs; the indexed weight of auto renewed validator %s ignores restaked rewards",
+			*dbTx.TxID, len(outs), dbTx.RewardTxID)
+	}
+	return nil
 }
 
 func (xi *txBatchIndexer) updateAddValidatorTx(dbTx *database.PChainTx, tx *txs.AddValidatorTx) error {
@@ -313,7 +327,29 @@ func (xi *txBatchIndexer) PersistEntities(db *gorm.DB) error {
 	} else {
 		txs = xi.newTxs
 	}
-	return database.CreatePChainEntities(db, txs, ins, outs)
+	err = database.CreatePChainEntities(db, txs, ins, outs)
+	if err != nil {
+		return err
+	}
+	return completeAutoRenewedRewardTxsInBatch(db, txs)
+}
+
+// Apply the outcomes of the validation cycles of auto-renewed validators whose commit/abort block is in
+// this batch (see auto_renewed.go). The block before the batch is included: a proposal block may be the
+// last block of the previous batch and its commit/abort block the first one of this batch.
+func completeAutoRenewedRewardTxsInBatch(db *gorm.DB, txs []*database.PChainTx) error {
+	if len(txs) == 0 {
+		return nil
+	}
+	minHeight, maxHeight := txs[0].BlockHeight, txs[0].BlockHeight
+	for _, tx := range txs[1:] {
+		minHeight = min(minHeight, tx.BlockHeight)
+		maxHeight = max(maxHeight, tx.BlockHeight)
+	}
+	if minHeight > 0 {
+		minHeight--
+	}
+	return completeAutoRenewedRewardTxs(db, minHeight, maxHeight)
 }
 
 // Common code for addValidatorTx, addPermissionlessValidatorTx, addAutoRenewedValidatorTx (ValidatorTx interface)
@@ -351,13 +387,22 @@ func (xi *txBatchIndexer) updateBoundedValidatorTx(
 	return xi.updateAddBoundedStakerTx(dbTx, tx, txIns)
 }
 
-// Code for addAutoRenewedValidatorTx
+// Code for addAutoRenewedValidatorTx: the first validation cycle starts at the block (chain) time and
+// lasts Period seconds; renewed cycles are stored on the rows of the reward txs, see auto_renewed.go
 func (xi *txBatchIndexer) updateUnboundedValidatorTx(
 	dbTx *database.PChainTx,
 	tx *txs.AddAutoRenewedValidatorTx,
 	txIns []*avax.TransferableInput,
 ) error {
-	dbTx.Period = &tx.Period
+	if dbTx.BlockTime == nil {
+		return fmt.Errorf("add auto renewed validator tx %s in block %d has no block time", *dbTx.TxID, dbTx.BlockHeight)
+	}
+	period := tx.Period
+	startTime := *dbTx.BlockTime
+	endTime := time.Unix(startTime.Unix()+int64(period), 0)
+	dbTx.Period = &period
+	dbTx.StartTime = &startTime
+	dbTx.EndTime = &endTime
 	err := xi.updateValidatorTx(dbTx, tx, txIns)
 	if err != nil {
 		return err
@@ -456,8 +501,9 @@ func (xi *txBatchIndexer) updateSetAutoRenewedValidatorConfigTx(
 	dbTx *database.PChainTx,
 	tx *txs.SetAutoRenewedValidatorConfigTx,
 ) error {
-	refTxId := tx.TxID.String()
-	dbTx.Period = &tx.Period
-	dbTx.RefTxID = &refTxId
+	// The referenced add auto renewed validator tx is stored like the staker tx of a reward tx
+	period := tx.Period
+	dbTx.Period = &period
+	dbTx.RewardTxID = tx.TxID.String()
 	return xi.updateGeneralBaseTx(dbTx, database.PChainSetAutoRenewedValidatorConfigTx, &tx.BaseTx)
 }

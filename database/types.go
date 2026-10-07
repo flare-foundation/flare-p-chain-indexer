@@ -40,7 +40,13 @@ const (
 	PChainUnknownTx                       PChainTxType = "UNKNOWN_TX"
 )
 
-var PChainStakingTransactions = [...]PChainTxType{PChainAddValidatorTx, PChainAddDelegatorTx, PChainAddPermissionlessValidatorTx, PChainAddPermissionlessDelegatorTx}
+// Transactions whose rows describe a stake (validator or delegator) with a start and an end time. A
+// REWARD_AUTO_RENEWED_VALIDATOR_TX row describes the renewed validation cycle of an auto-renewed
+// validator; its start_time/end_time are set only if the validator was actually renewed.
+var PChainStakingTransactions = [...]PChainTxType{
+	PChainAddValidatorTx, PChainAddDelegatorTx, PChainAddPermissionlessValidatorTx, PChainAddPermissionlessDelegatorTx,
+	PChainAddAutoRenewedValidatorTx, PChainRewardAutoRenewedValidatorTx,
+}
 
 type PChainBlockType string
 
