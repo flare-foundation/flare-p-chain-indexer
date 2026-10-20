@@ -13,8 +13,7 @@ import (
 
 	"github.com/ava-labs/avalanchego/indexer"
 	"github.com/ava-labs/avalanchego/vms/components/avax"
-	"github.com/ava-labs/avalanchego/vms/platformvm/block"
-	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
+	"github.com/ava-labs/avalanchego/vms/platformvm/platform"
 	"gorm.io/gorm"
 )
 
@@ -84,14 +83,14 @@ func (xi *txBatchIndexer) AddContainer(index uint64, container indexer.Container
 	}
 
 	switch innerBlkType := innerBlk.(type) {
-	case *block.ApricotProposalBlock:
+	case *platform.ApricotProposalBlock:
 		tx := innerBlkType.Tx
 		err = xi.addTx(&container, database.PChainProposalBlock, innerBlk.Height(), 0, tx)
-	case *block.ApricotCommitBlock:
+	case *platform.ApricotCommitBlock:
 		xi.addEmptyTx(&container, database.PChainCommitBlock, innerBlk.Height(), 0)
-	case *block.ApricotAbortBlock:
+	case *platform.ApricotAbortBlock:
 		xi.addEmptyTx(&container, database.PChainAbortBlock, innerBlk.Height(), 0)
-	case *block.ApricotStandardBlock:
+	case *platform.ApricotStandardBlock:
 		for _, tx := range innerBlkType.Txs() {
 			err = xi.addTx(&container, database.PChainStandardBlock, innerBlk.Height(), 0, tx)
 			if err != nil {
@@ -99,18 +98,18 @@ func (xi *txBatchIndexer) AddContainer(index uint64, container indexer.Container
 			}
 		}
 	// Banff blocks were introduced in Avalanche 1.9.0
-	case *block.BanffProposalBlock:
+	case *platform.BanffProposalBlock:
 		for _, tx := range innerBlkType.Txs() {
 			err = xi.addTx(&container, database.PChainProposalBlock, innerBlk.Height(), innerBlkType.Time, tx)
 			if err != nil {
 				break
 			}
 		}
-	case *block.BanffCommitBlock:
+	case *platform.BanffCommitBlock:
 		xi.addEmptyTx(&container, database.PChainCommitBlock, innerBlk.Height(), innerBlkType.Time)
-	case *block.BanffAbortBlock:
+	case *platform.BanffAbortBlock:
 		xi.addEmptyTx(&container, database.PChainAbortBlock, innerBlk.Height(), innerBlkType.Time)
-	case *block.BanffStandardBlock:
+	case *platform.BanffStandardBlock:
 		for _, tx := range innerBlkType.Txs() {
 			err = xi.addTx(&container, database.PChainStandardBlock, innerBlk.Height(), innerBlkType.Time, tx)
 			if err != nil {
@@ -127,7 +126,7 @@ func (xi *txBatchIndexer) ProcessBatch() error {
 	return xi.inOutIndexer.ProcessBatch()
 }
 
-func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database.PChainBlockType, height uint64, blockTime uint64, tx *txs.Tx) error {
+func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database.PChainBlockType, height uint64, blockTime uint64, tx *platform.Tx) error {
 	txID := tx.ID().String()
 	dbTx := &database.PChainTx{}
 	dbTx.TxID = &txID
@@ -143,54 +142,54 @@ func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database
 
 	var err error = nil
 	switch unsignedTx := tx.Unsigned.(type) {
-	case *txs.RewardValidatorTx:
+	case *platform.RewardValidatorTx:
 		err = xi.updateRewardValidatorTx(dbTx, unsignedTx)
-	case *txs.RewardAutoRenewedValidatorTx:
+	case *platform.RewardAutoRenewedValidatorTx:
 		err = xi.updateRewardAutoRenewedValidatorTx(dbTx, unsignedTx)
-	case *txs.AddValidatorTx:
+	case *platform.AddValidatorTx:
 		err = xi.updateAddValidatorTx(dbTx, unsignedTx)
-	case *txs.AddPermissionlessValidatorTx:
+	case *platform.AddPermissionlessValidatorTx:
 		err = xi.updateAddPermissionlessValidatorTx(dbTx, unsignedTx)
-	case *txs.AddDelegatorTx:
+	case *platform.AddDelegatorTx:
 		err = xi.updateAddDelegatorTx(dbTx, unsignedTx)
-	case *txs.AddPermissionlessDelegatorTx:
+	case *platform.AddPermissionlessDelegatorTx:
 		err = xi.updateAddPermissionlessDelegatorTx(dbTx, unsignedTx)
-	case *txs.AddAutoRenewedValidatorTx:
+	case *platform.AddAutoRenewedValidatorTx:
 		err = xi.updateAddAutoRenewedValidatorTx(dbTx, unsignedTx)
-	case *txs.SetAutoRenewedValidatorConfigTx:
+	case *platform.SetAutoRenewedValidatorConfigTx:
 		err = xi.updateSetAutoRenewedValidatorConfigTx(dbTx, unsignedTx)
-	case *txs.ImportTx:
+	case *platform.ImportTx:
 		err = xi.updateImportTx(dbTx, unsignedTx)
-	case *txs.ExportTx:
+	case *platform.ExportTx:
 		err = xi.updateExportTx(dbTx, unsignedTx)
-	case *txs.AdvanceTimeTx:
+	case *platform.AdvanceTimeTx:
 		xi.updateAdvanceTimeTx(dbTx, unsignedTx)
-	case *txs.BaseTx:
+	case *platform.BaseTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainBaseTx, unsignedTx)
 
 	// We do not save specific info for the following transaction types.
 	// We may change this in the future if we need to index more data.
-	case *txs.CreateChainTx:
+	case *platform.CreateChainTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainCreateChainTx, &unsignedTx.BaseTx)
-	case *txs.CreateSubnetTx:
+	case *platform.CreateSubnetTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainCreateSubnetTx, &unsignedTx.BaseTx)
-	case *txs.RemoveSubnetValidatorTx:
+	case *platform.RemoveSubnetValidatorTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainRemoveSubnetValidatorTx, &unsignedTx.BaseTx)
-	case *txs.TransformSubnetTx:
+	case *platform.TransformSubnetTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainTransformSubnetTx, &unsignedTx.BaseTx)
-	case *txs.AddSubnetValidatorTx:
+	case *platform.AddSubnetValidatorTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainAddSubnetValidatorTx, &unsignedTx.BaseTx)
-	case *txs.TransferSubnetOwnershipTx:
+	case *platform.TransferSubnetOwnershipTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainTransferSubnetOwnershipTx, &unsignedTx.BaseTx)
-	case *txs.ConvertSubnetToL1Tx:
+	case *platform.ConvertSubnetToL1Tx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainConvertSubnetToL1Tx, &unsignedTx.BaseTx)
-	case *txs.RegisterL1ValidatorTx:
+	case *platform.RegisterL1ValidatorTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainRegisterL1ValidatorTx, &unsignedTx.BaseTx)
-	case *txs.DisableL1ValidatorTx:
+	case *platform.DisableL1ValidatorTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainDisableL1ValidatorTx, &unsignedTx.BaseTx)
-	case *txs.SetL1ValidatorWeightTx:
+	case *platform.SetL1ValidatorWeightTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainSetL1ValidatorWeightTx, &unsignedTx.BaseTx)
-	case *txs.IncreaseL1ValidatorBalanceTx:
+	case *platform.IncreaseL1ValidatorBalanceTx:
 		err = xi.updateGeneralBaseTx(dbTx, database.PChainIncreaseL1ValidatorBalanceTx, &unsignedTx.BaseTx)
 	default:
 		err = fmt.Errorf("p-chain transaction %v with type %T in block %d is not indexed", dbTx.TxID, unsignedTx, height)
@@ -228,14 +227,14 @@ func (xi *txBatchIndexer) updateRewardTx(dbTx *database.PChainTx, tx RewardTx, r
 	return outs, nil
 }
 
-func (xi *txBatchIndexer) updateRewardValidatorTx(dbTx *database.PChainTx, tx *txs.RewardValidatorTx) error {
+func (xi *txBatchIndexer) updateRewardValidatorTx(dbTx *database.PChainTx, tx *platform.RewardValidatorTx) error {
 	dbTx.Type = database.PChainRewardValidatorTx
 
 	_, err := xi.updateRewardTx(dbTx, tx, tx.StakerTxID().String())
 	return err
 }
 
-func (xi *txBatchIndexer) updateRewardAutoRenewedValidatorTx(dbTx *database.PChainTx, tx *txs.RewardAutoRenewedValidatorTx) error {
+func (xi *txBatchIndexer) updateRewardAutoRenewedValidatorTx(dbTx *database.PChainTx, tx *platform.RewardAutoRenewedValidatorTx) error {
 	timestamp := time.Unix(int64(tx.Timestamp), 0)
 	dbTx.Type = database.PChainRewardAutoRenewedValidatorTx
 	dbTx.Time = &timestamp
@@ -255,53 +254,53 @@ func (xi *txBatchIndexer) updateRewardAutoRenewedValidatorTx(dbTx *database.PCha
 	return nil
 }
 
-func (xi *txBatchIndexer) updateAddValidatorTx(dbTx *database.PChainTx, tx *txs.AddValidatorTx) error {
+func (xi *txBatchIndexer) updateAddValidatorTx(dbTx *database.PChainTx, tx *platform.AddValidatorTx) error {
 	dbTx.Type = database.PChainAddValidatorTx
 	return xi.updateBoundedValidatorTx(dbTx, tx, tx.Ins)
 }
 
-func (xi *txBatchIndexer) updateAddPermissionlessValidatorTx(dbTx *database.PChainTx, tx *txs.AddPermissionlessValidatorTx) error {
+func (xi *txBatchIndexer) updateAddPermissionlessValidatorTx(dbTx *database.PChainTx, tx *platform.AddPermissionlessValidatorTx) error {
 	dbTx.Type = database.PChainAddPermissionlessValidatorTx
 	return xi.updateBoundedValidatorTx(dbTx, tx, tx.Ins)
 }
 
-func (xi *txBatchIndexer) updateAddAutoRenewedValidatorTx(dbTx *database.PChainTx, tx *txs.AddAutoRenewedValidatorTx) error {
+func (xi *txBatchIndexer) updateAddAutoRenewedValidatorTx(dbTx *database.PChainTx, tx *platform.AddAutoRenewedValidatorTx) error {
 	dbTx.Type = database.PChainAddAutoRenewedValidatorTx
 	return xi.updateUnboundedValidatorTx(dbTx, tx, tx.Ins)
 }
 
-func (xi *txBatchIndexer) updateAddDelegatorTx(dbTx *database.PChainTx, tx *txs.AddDelegatorTx) error {
+func (xi *txBatchIndexer) updateAddDelegatorTx(dbTx *database.PChainTx, tx *platform.AddDelegatorTx) error {
 	dbTx.Type = database.PChainAddDelegatorTx
 	return xi.updateDelegatorTx(dbTx, tx, tx.Ins)
 }
 
-func (xi *txBatchIndexer) updateAddPermissionlessDelegatorTx(dbTx *database.PChainTx, tx *txs.AddPermissionlessDelegatorTx) error {
+func (xi *txBatchIndexer) updateAddPermissionlessDelegatorTx(dbTx *database.PChainTx, tx *platform.AddPermissionlessDelegatorTx) error {
 	dbTx.Type = database.PChainAddPermissionlessDelegatorTx
 	return xi.updateDelegatorTx(dbTx, tx, tx.Ins)
 }
 
-func (xi *txBatchIndexer) updateImportTx(dbTx *database.PChainTx, tx *txs.ImportTx) error {
+func (xi *txBatchIndexer) updateImportTx(dbTx *database.PChainTx, tx *platform.ImportTx) error {
 	dbTx.Type = database.PChainImportTx
 	dbTx.ChainID = tx.SourceChain.String()
 	xi.newTxs = append(xi.newTxs, dbTx)
 	return xi.inOutIndexer.AddNewFromBaseTx(*dbTx.TxID, &tx.BaseTx.BaseTx, PChainDefaultInputOutputCreator)
 }
 
-func (xi *txBatchIndexer) updateExportTx(dbTx *database.PChainTx, tx *txs.ExportTx) error {
+func (xi *txBatchIndexer) updateExportTx(dbTx *database.PChainTx, tx *platform.ExportTx) error {
 	dbTx.Type = database.PChainExportTx
 	dbTx.ChainID = tx.DestinationChain.String()
 	xi.newTxs = append(xi.newTxs, dbTx)
 	return xi.inOutIndexer.AddNewFromBaseTx(*dbTx.TxID, &tx.BaseTx.BaseTx, PChainDefaultInputOutputCreator)
 }
 
-func (xi *txBatchIndexer) updateAdvanceTimeTx(dbTx *database.PChainTx, tx *txs.AdvanceTimeTx) {
+func (xi *txBatchIndexer) updateAdvanceTimeTx(dbTx *database.PChainTx, tx *platform.AdvanceTimeTx) {
 	time := time.Unix(int64(tx.Time), 0)
 	dbTx.Type = database.PChainAdvanceTimeTx
 	dbTx.Time = &time
 	xi.newTxs = append(xi.newTxs, dbTx)
 }
 
-func (xi *txBatchIndexer) updateGeneralBaseTx(dbTx *database.PChainTx, txType database.PChainTxType, baseTx *txs.BaseTx) error {
+func (xi *txBatchIndexer) updateGeneralBaseTx(dbTx *database.PChainTx, txType database.PChainTxType, baseTx *platform.BaseTx) error {
 	dbTx.Type = txType
 	xi.newTxs = append(xi.newTxs, dbTx)
 	return xi.inOutIndexer.AddNewFromBaseTx(*dbTx.TxID, &baseTx.BaseTx, PChainDefaultInputOutputCreator)
@@ -391,7 +390,7 @@ func (xi *txBatchIndexer) updateBoundedValidatorTx(
 // lasts Period seconds; renewed cycles are stored on the rows of the reward txs, see auto_renewed.go
 func (xi *txBatchIndexer) updateUnboundedValidatorTx(
 	dbTx *database.PChainTx,
-	tx *txs.AddAutoRenewedValidatorTx,
+	tx *platform.AddAutoRenewedValidatorTx,
 	txIns []*avax.TransferableInput,
 ) error {
 	if dbTx.BlockTime == nil {
@@ -499,7 +498,7 @@ func getRewardOutputs(client chain.RPCClient, txID string) ([]shared.Output, err
 
 func (xi *txBatchIndexer) updateSetAutoRenewedValidatorConfigTx(
 	dbTx *database.PChainTx,
-	tx *txs.SetAutoRenewedValidatorConfigTx,
+	tx *platform.SetAutoRenewedValidatorConfigTx,
 ) error {
 	// The referenced add auto renewed validator tx is stored like the staker tx of a reward tx
 	period := tx.Period

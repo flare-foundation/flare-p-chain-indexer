@@ -6,12 +6,12 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/vms/components/avax"
 	"github.com/ava-labs/avalanchego/vms/platformvm/fx"
-	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
+	"github.com/ava-labs/avalanchego/vms/platformvm/platform"
 )
 
 type StakerTx interface {
-	txs.UnsignedTx
-	txs.Staker
+	platform.UnsignedTx
+	platform.Staker
 
 	Stake() []*avax.TransferableOutput
 }
@@ -41,7 +41,7 @@ type DelegatorTx interface {
 }
 
 type RewardTx interface {
-	txs.UnsignedTx
+	platform.UnsignedTx
 
 	StakerTxID() ids.ID
 }

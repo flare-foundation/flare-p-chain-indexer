@@ -8,8 +8,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
 	"github.com/ava-labs/avalanchego/utils/hashing"
 	"github.com/ava-labs/avalanchego/vms/components/verify"
-	"github.com/ava-labs/avalanchego/vms/platformvm/block"
-	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
+	"github.com/ava-labs/avalanchego/vms/platformvm/platform"
 	proposerBlock "github.com/ava-labs/avalanchego/vms/proposervm/block"
 	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
 	"github.com/ava-labs/libevm/accounts"
@@ -22,18 +21,18 @@ var (
 	ErrCredentialForAddressNotFound = errors.New("public key not found for address")
 )
 
-// If block.Parse fails, try to parse as a "pre-fork" block
-func ParsePChainBlock(blockBytes []byte) (block.Block, error) {
+// If platform.Parse fails, try to parse as a "pre-fork" block
+func ParsePChainBlock(blockBytes []byte) (platform.Block, error) {
 	blk, err := proposerBlock.Parse(blockBytes, constants.PlatformChainID)
-	var innerBlk block.Block
+	var innerBlk platform.Block
 	if err == nil {
-		innerBlk, err = block.Parse(block.GenesisCodec, blk.Block())
+		innerBlk, err = platform.ParseBlock(platform.GenesisCodec, blk.Block())
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to parse inner block")
 		}
 	} else {
 		// try to parse as as a "pre-fork" block
-		innerBlk, err = block.Parse(block.GenesisCodec, blockBytes)
+		innerBlk, err = platform.ParseBlock(platform.GenesisCodec, blockBytes)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to parse block")
 		}
@@ -63,7 +62,7 @@ func PublicKeyFromPChainBlock(txID string, addrBytes [20]byte, addrIndex uint32,
 
 // Returns the public key that signed the credential at index addrIndex of the transaction
 // and matches the provided address. Both avalanche-style and eth-style signatures are supported.
-func publicKeyFromTx(tx *txs.Tx, addrBytes [20]byte, addrIndex uint32) (*secp256k1.PublicKey, error) {
+func publicKeyFromTx(tx *platform.Tx, addrBytes [20]byte, addrIndex uint32) (*secp256k1.PublicKey, error) {
 	if len(tx.Creds) <= int(addrIndex) {
 		return nil, fmt.Errorf("invalid credential index %d", addrIndex)
 	}

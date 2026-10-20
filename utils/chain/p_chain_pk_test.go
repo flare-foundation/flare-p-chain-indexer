@@ -6,8 +6,7 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/formatting/address"
-	"github.com/ava-labs/avalanchego/vms/platformvm/block"
-	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
+	"github.com/ava-labs/avalanchego/vms/platformvm/platform"
 	proposerBlock "github.com/ava-labs/avalanchego/vms/proposervm/block"
 )
 
@@ -108,16 +107,16 @@ func TestPublicKeysFromBanffProposalBlock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stdBlk, ok := innerBlk.(*block.BanffStandardBlock)
+	stdBlk, ok := innerBlk.(*platform.BanffStandardBlock)
 	if !ok {
-		t.Fatalf("expected *block.BanffStandardBlock, got %T", innerBlk)
+		t.Fatalf("expected *platform.BanffStandardBlock, got %T", innerBlk)
 	}
 
-	rewardTx, err := txs.NewSigned(&txs.RewardValidatorTx{TxID: ids.GenerateTestID()}, txs.Codec, nil)
+	rewardTx, err := platform.NewSignedTx(&platform.RewardValidatorTx{TxID: ids.GenerateTestID()}, platform.Codec, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	proposalBlk, err := block.NewBanffProposalBlock(stdBlk.Timestamp(), stdBlk.Parent(), stdBlk.Height(), rewardTx, stdBlk.Txs())
+	proposalBlk, err := platform.NewBanffProposalBlock(stdBlk.Timestamp(), stdBlk.Parent(), stdBlk.Height(), rewardTx, stdBlk.Txs())
 	if err != nil {
 		t.Fatal(err)
 	}
