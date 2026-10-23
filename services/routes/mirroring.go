@@ -73,7 +73,7 @@ func (rh *mirroringRouteHandlers) listMirroringTransactions() utils.RouteHandler
 	}
 
 	return utils.NewParamRouteHandler(handler, http.MethodGet,
-		map[string]string{"tx_id:[0-9a-zA-Z]+": "Transaction ID"},
+		map[string]string{"tx_id": "Transaction ID"},
 		GetMirroringResponse{})
 }
 

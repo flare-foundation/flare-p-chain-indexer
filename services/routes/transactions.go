@@ -41,7 +41,7 @@ func (rh *transactionRouteHandlers) getTransaction() utils.RouteHandler {
 		return resp, nil
 	}
 	return utils.NewParamRouteHandler(handler, http.MethodGet,
-		map[string]string{"tx_id:[0-9a-zA-Z]+": "Transaction ID"},
+		map[string]string{"tx_id": "Transaction ID"},
 		&api.ApiPChainTx{})
 }
 
@@ -66,7 +66,7 @@ func (rh *transactionRouteHandlers) listTransactions() utils.RouteHandler {
 	}
 
 	return utils.NewParamRouteHandler(handler, http.MethodGet,
-		map[string]string{"epoch:[0-9]+": "Epoch"},
+		map[string]string{"epoch": "Epoch"},
 		[]api.ApiPChainTxListItem{},
 	)
 }
