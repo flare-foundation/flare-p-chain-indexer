@@ -14,30 +14,39 @@ const (
 type PChainTxType string
 
 const (
-	PChainRewardValidatorTx            PChainTxType = "REWARD_TX"
-	PChainAddDelegatorTx               PChainTxType = "ADD_DELEGATOR_TX"
-	PChainAddValidatorTx               PChainTxType = "ADD_VALIDATOR_TX"
-	PChainImportTx                     PChainTxType = "IMPORT_TX"
-	PChainExportTx                     PChainTxType = "EXPORT_TX"
-	PChainAdvanceTimeTx                PChainTxType = "ADVANCE_TIME_TX"
-	PChainCreateChainTx                PChainTxType = "CREATE_CHAIN_TX"
-	PChainCreateSubnetTx               PChainTxType = "CREATE_SUBNET_TX"
-	PChainAddSubnetValidatorTx         PChainTxType = "ADD_SUBNET_VALIDATOR_TX"
-	PChainRemoveSubnetValidatorTx      PChainTxType = "REMOVE_SUBNET_VALIDATOR_TX"
-	PChainTransformSubnetTx            PChainTxType = "TRANSFORM_SUBNET_TX"
-	PChainTransferSubnetOwnershipTx    PChainTxType = "TRANSFER_SUBNET_OWNERSHIP_TX"
-	PChainAddPermissionlessValidatorTx PChainTxType = "ADD_PERMISSIONLESS_VALIDATOR_TX"
-	PChainAddPermissionlessDelegatorTx PChainTxType = "ADD_PERMISSIONLESS_DELEGATOR_TX"
-	PChainBaseTx                       PChainTxType = "BASE_TX"
-	PChainConvertSubnetToL1Tx          PChainTxType = "CONVERT_SUBNET_TO_L1_TX"
-	PChainRegisterL1ValidatorTx        PChainTxType = "REGISTER_L1_VALIDATOR_TX"
-	PChainDisableL1ValidatorTx         PChainTxType = "DISABLE_L1_VALIDATOR_TX"
-	PChainSetL1ValidatorWeightTx       PChainTxType = "SET_L1_VALIDATOR_WEIGHT_TX"
-	PChainIncreaseL1ValidatorBalanceTx PChainTxType = "INCREASE_L1_VALIDATOR_BALANCE_TX"
-	PChainUnknownTx                    PChainTxType = "UNKNOWN_TX"
+	PChainRewardValidatorTx               PChainTxType = "REWARD_TX"
+	PChainAddDelegatorTx                  PChainTxType = "ADD_DELEGATOR_TX"
+	PChainAddValidatorTx                  PChainTxType = "ADD_VALIDATOR_TX"
+	PChainImportTx                        PChainTxType = "IMPORT_TX"
+	PChainExportTx                        PChainTxType = "EXPORT_TX"
+	PChainAdvanceTimeTx                   PChainTxType = "ADVANCE_TIME_TX"
+	PChainCreateChainTx                   PChainTxType = "CREATE_CHAIN_TX"
+	PChainCreateSubnetTx                  PChainTxType = "CREATE_SUBNET_TX"
+	PChainAddSubnetValidatorTx            PChainTxType = "ADD_SUBNET_VALIDATOR_TX"
+	PChainRemoveSubnetValidatorTx         PChainTxType = "REMOVE_SUBNET_VALIDATOR_TX"
+	PChainTransformSubnetTx               PChainTxType = "TRANSFORM_SUBNET_TX"
+	PChainTransferSubnetOwnershipTx       PChainTxType = "TRANSFER_SUBNET_OWNERSHIP_TX"
+	PChainAddPermissionlessValidatorTx    PChainTxType = "ADD_PERMISSIONLESS_VALIDATOR_TX"
+	PChainAddPermissionlessDelegatorTx    PChainTxType = "ADD_PERMISSIONLESS_DELEGATOR_TX"
+	PChainAddAutoRenewedValidatorTx       PChainTxType = "ADD_AUTO_RENEWED_VALIDATOR_TX"
+	PChainSetAutoRenewedValidatorConfigTx PChainTxType = "SET_AUTO_RENEWED_VALIDATOR_CONFIG_TX"
+	PChainRewardAutoRenewedValidatorTx    PChainTxType = "REWARD_AUTO_RENEWED_VALIDATOR_TX"
+	PChainBaseTx                          PChainTxType = "BASE_TX"
+	PChainConvertSubnetToL1Tx             PChainTxType = "CONVERT_SUBNET_TO_L1_TX"
+	PChainRegisterL1ValidatorTx           PChainTxType = "REGISTER_L1_VALIDATOR_TX"
+	PChainDisableL1ValidatorTx            PChainTxType = "DISABLE_L1_VALIDATOR_TX"
+	PChainSetL1ValidatorWeightTx          PChainTxType = "SET_L1_VALIDATOR_WEIGHT_TX"
+	PChainIncreaseL1ValidatorBalanceTx    PChainTxType = "INCREASE_L1_VALIDATOR_BALANCE_TX"
+	PChainUnknownTx                       PChainTxType = "UNKNOWN_TX"
 )
 
-var PChainStakingTransactions = [...]PChainTxType{PChainAddValidatorTx, PChainAddDelegatorTx, PChainAddPermissionlessValidatorTx, PChainAddPermissionlessDelegatorTx}
+// Transactions whose rows describe a stake (validator or delegator) with a start and an end time. A
+// REWARD_AUTO_RENEWED_VALIDATOR_TX row describes the renewed validation cycle of an auto-renewed
+// validator; its start_time/end_time are set only if the validator was actually renewed.
+var PChainStakingTransactions = [...]PChainTxType{
+	PChainAddValidatorTx, PChainAddDelegatorTx, PChainAddPermissionlessValidatorTx, PChainAddPermissionlessDelegatorTx,
+	PChainAddAutoRenewedValidatorTx, PChainRewardAutoRenewedValidatorTx,
+}
 
 type PChainBlockType string
 

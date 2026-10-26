@@ -9,11 +9,11 @@ import (
 	avaJson "github.com/ava-labs/avalanchego/utils/json"
 	"github.com/ava-labs/avalanchego/vms/components/avax"
 	"github.com/ava-labs/avalanchego/vms/platformvm/genesis"
-	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
+	"github.com/ava-labs/avalanchego/vms/platformvm/platform"
 	"github.com/pkg/errors"
 )
 
-func CallPChainGetTxApi(client chain.RPCClient, txID string) (*txs.Tx, error) {
+func CallPChainGetTxApi(client chain.RPCClient, txID string) (*platform.Tx, error) {
 	id, err := ids.FromString(txID)
 	if err != nil {
 		return nil, err
@@ -40,7 +40,7 @@ func CallPChainGetTxApi(client chain.RPCClient, txID string) (*txs.Tx, error) {
 	if err != nil {
 		return nil, err
 	}
-	tx, err := txs.Parse(genesis.Codec, txData)
+	tx, err := platform.ParseTx(genesis.Codec, txData)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func CallPChainGetRewardUTXOsApi(client chain.RPCClient, txID string) ([]*avax.U
 			return nil, err
 		}
 		utxo := avax.UTXO{}
-		_, err = txs.Codec.Unmarshal(txData, &utxo)
+		_, err = platform.Codec.Unmarshal(txData, &utxo)
 		if err != nil {
 			return nil, err
 		}

@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	ServicesVersion = "2.4.0"
+	ServicesVersion = "2.6.0"
 )
 
 func main() {
@@ -36,9 +36,6 @@ func main() {
 	routes.AddStakerRoutes(router, ctx)
 	routes.AddTransactionRoutes(router, ctx, epochs)
 	routes.AddMirroringRoutes(router, ctx, epochs)
-
-	// Disabled -- state connector routes are currently not used
-	// routes.AddQueryRoutes(router, ctx)
 
 	router.Finalize()
 

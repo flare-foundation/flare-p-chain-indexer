@@ -1,9 +1,9 @@
-# Flare P-chain Attestation Suite
+# Flare P-chain Indexer
 
 This code implements two projects (compiled into two executables)
 
 * P-chain clients
-* Attestation client (services)
+* Services (REST API over the indexed data)
 
 ## P-chain Clients
 
@@ -32,6 +32,15 @@ This is done for all epoch not already processes or voted for.
 ### Mirroring client
 
 Sends the data about validators in a particuler epoch to the mirror contract.
+
+### Auto-renewed validators
+
+Auto-renewed validators (Avalanche v1.15.0, Helicon upgrade) validate in consecutive cycles instead of one fixed term. The indexer stores every cycle as an ordinary staking row so that the voting, mirroring and uptime clients handle it like a fixed-term validator stake:
+
+* the first cycle is on the `ADD_AUTO_RENEWED_VALIDATOR_TX` row (`start_time` = block time, `end_time` = `start_time` + `period`),
+* every renewed cycle is on the row of the `REWARD_AUTO_RENEWED_VALIDATOR_TX` that started it: node ID, weight, subnet and delegation fee copied from the add transaction, `start_time` = block time (the end of the previous cycle), `end_time` = `start_time` + the period in effect (the `period` of the latest `SET_AUTO_RENEWED_VALIDATOR_CONFIG_TX`, otherwise the one of the add transaction). The row is completed once the commit or abort block of the reward transaction is indexed; `period` is `NULL` until then and `0` if the validator exited (aborted reward or a configured period of 0). The stake is mirrored under the reward transaction ID with the input address (and public key) of the add transaction.
+
+Rewards restaked at renewal are not tracked; the P-chain of Flare networks mints no staking rewards, so the weight never changes.
 
 ### Configuration
 
@@ -134,16 +143,11 @@ Tests for indexer expect a MySQL database running. Please run `docker-compose up
 Additionally, tests for voting, mirroring and uptime clients expect a Hardhat instance from <https://gitlab.com/flarenetwork/flare-smart-contracts/-/tree/staking-tests> running. You start it by running
 `yarn staking_test` (following `yarn` and `yarn c` commands).
 
-## Attestation client services (possible future use)
+## Services
 
-The following services are implemented, according to the attestation specification:
+A REST API over the indexed data: transactions, transfers, stakers and the data needed to mirror a stake. The routes are listed in the Swagger UI served by the executable.
 
-* `/query`
-* `/query/prepare`
-* `/query/integrity`
-* `/query/prepareAttestation`
-
-The executable can be built with with `go build services/main/services.go`.
+The executable can be built with `go build services/main/services.go`.
 
 The configuration is read from `toml` file.
 The settings for `[db]`, `[logger]` are the same as for the indexer above.

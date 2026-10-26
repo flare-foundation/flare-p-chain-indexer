@@ -6,7 +6,7 @@ import (
 	"flare-indexer/indexer/shared"
 	"flare-indexer/utils/chain"
 
-	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
+	"github.com/ava-labs/avalanchego/vms/platformvm/platform"
 	mapset "github.com/deckarep/golang-set/v2"
 	"gorm.io/gorm"
 )
@@ -71,14 +71,20 @@ func (iu *pChainInputUpdater) updateFromChain(
 
 		var outs []shared.Output
 		switch unsignedTx := tx.Unsigned.(type) {
-		case *txs.AddValidatorTx:
+		case *platform.AddValidatorTx:
 			outs, err = iu.getAddStakerTxAndRewardTxOutputs(txId, unsignedTx)
-		case *txs.AddPermissionlessValidatorTx:
+		case *platform.AddPermissionlessValidatorTx:
 			outs, err = iu.getAddStakerTxAndRewardTxOutputs(txId, unsignedTx)
-		case *txs.AddDelegatorTx:
+		case *platform.AddDelegatorTx:
 			outs, err = iu.getAddStakerTxAndRewardTxOutputs(txId, unsignedTx)
-		case *txs.AddPermissionlessDelegatorTx:
+		case *platform.AddPermissionlessDelegatorTx:
 			outs, err = iu.getAddStakerTxAndRewardTxOutputs(txId, unsignedTx)
+		case *platform.AddAutoRenewedValidatorTx:
+			outs, err = iu.getAddStakerTxAndRewardTxOutputs(txId, unsignedTx)
+		case *platform.RewardAutoRenewedValidatorTx:
+			// Reward UTXOs of a RewardAutoRenewedValidatorTx are stored under
+			// the reward tx's own id (it has no inputs or outputs of its own)
+			outs, err = getRewardOutputs(iu.client, txId)
 		default:
 			txOuts := tx.Unsigned.Outputs()
 			outs, err = shared.OutputsFromTxOuts(txId, txOuts, 0, PChainDefaultInputOutputCreator)

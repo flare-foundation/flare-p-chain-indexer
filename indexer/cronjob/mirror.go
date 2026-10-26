@@ -258,8 +258,10 @@ type mirrorTxInput struct {
 
 func (c *mirrorCronJob) mirrorTx(in *mirrorTxInput) error {
 
-	// Try to register address and wait until it is mined on timeout occurs
-	err := c.registerAddress(*in.tx.TxID, in.tx.InputAddress)
+	// Try to register address and wait until it is mined on timeout occurs. The address and its public
+	// key belong to the transaction that created the stake: for a renewed validation cycle of an
+	// auto-renewed validator that is the add tx, not the reward tx whose row describes the cycle.
+	err := c.registerAddress(in.tx.StakerTxID(), in.tx.InputAddress)
 	if err != nil {
 		// Non-fatal error, continue mirroring
 		logger.Error("error registering address: %s", err.Error())

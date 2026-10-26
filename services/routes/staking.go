@@ -82,10 +82,14 @@ func AddStakerRoutes(router utils.Router, ctx context.ServicesContext) {
 	vr := newStakerRouteHandlers(ctx)
 
 	validatorSubrouter := router.WithPrefix("/validators", "Staking")
-	validatorSubrouter.AddRoute("/transactions",
-		vr.listStakingTransactions(database.PChainAddValidatorTx, database.PChainAddPermissionlessValidatorTx))
-	validatorSubrouter.AddRoute("/list",
-		vr.listStakers(database.PChainAddValidatorTx, database.PChainAddPermissionlessValidatorTx))
+	// Auto-renewed validators are listed by validation cycle: the add tx for the first one, the reward tx
+	// that started it for every renewed one
+	validatorTxTypes := []database.PChainTxType{
+		database.PChainAddValidatorTx, database.PChainAddPermissionlessValidatorTx,
+		database.PChainAddAutoRenewedValidatorTx, database.PChainRewardAutoRenewedValidatorTx,
+	}
+	validatorSubrouter.AddRoute("/transactions", vr.listStakingTransactions(validatorTxTypes...))
+	validatorSubrouter.AddRoute("/list", vr.listStakers(validatorTxTypes...))
 
 	delegatorSubrouter := router.WithPrefix("/delegators", "Staking")
 	delegatorSubrouter.AddRoute("/transactions",

@@ -8,7 +8,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
 	"github.com/ava-labs/avalanchego/utils/hashing"
 	"github.com/ava-labs/avalanchego/vms/components/verify"
-	"github.com/ava-labs/avalanchego/vms/platformvm/block"
+	"github.com/ava-labs/avalanchego/vms/platformvm/platform"
 	proposerBlock "github.com/ava-labs/avalanchego/vms/proposervm/block"
 	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
 	"github.com/ava-labs/libevm/accounts"
@@ -16,24 +16,23 @@ import (
 )
 
 var (
-	ErrInvalidBlockType             = errors.New("invalid block type")
 	ErrInvalidTransactionBlock      = errors.New("transaction not found in block")
 	ErrInvalidCredentialType        = errors.New("invalid credential type")
 	ErrCredentialForAddressNotFound = errors.New("public key not found for address")
 )
 
-// If block.Parse fails, try to parse as a "pre-fork" block
-func ParsePChainBlock(blockBytes []byte) (block.Block, error) {
+// If platform.Parse fails, try to parse as a "pre-fork" block
+func ParsePChainBlock(blockBytes []byte) (platform.Block, error) {
 	blk, err := proposerBlock.Parse(blockBytes, constants.PlatformChainID)
-	var innerBlk block.Block
+	var innerBlk platform.Block
 	if err == nil {
-		innerBlk, err = block.Parse(block.GenesisCodec, blk.Block())
+		innerBlk, err = platform.ParseBlock(platform.GenesisCodec, blk.Block())
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to parse inner block")
 		}
 	} else {
 		// try to parse as as a "pre-fork" block
-		innerBlk, err = block.Parse(block.GenesisCodec, blockBytes)
+		innerBlk, err = platform.ParseBlock(platform.GenesisCodec, blockBytes)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to parse block")
 		}
@@ -49,44 +48,36 @@ func PublicKeyFromPChainBlock(txID string, addrBytes [20]byte, addrIndex uint32,
 		return nil, err
 	}
 
-	switch blk := innerBlk.(type) {
-	case *block.ApricotProposalBlock:
-		// We extract public keys from the add delegator and
-		// add validator which are only in proposal blocks
-		if blk.Tx.ID().String() != txID {
-			return nil, ErrInvalidTransactionBlock
+	// Staking transactions are found in Apricot proposal blocks, in Banff standard blocks and,
+	// since Durango, also among the decision transactions of Banff proposal blocks (the block
+	// builder packs pending decision transactions into the proposal block that rewards a staker).
+	// All block types implement Txs(), so the transaction is looked up regardless of the block type.
+	for _, tx := range innerBlk.Txs() {
+		if tx.ID().String() == txID {
+			return publicKeyFromTx(tx, addrBytes, addrIndex)
 		}
-		if len(blk.Tx.Creds) <= int(addrIndex) {
-			return nil, fmt.Errorf("invalid credential index %d", addrIndex)
-		}
-		txBytes := blk.Tx.Unsigned.Bytes()
-		return PublicKeyForAddressAndSignedHash(blk.Tx.Creds[addrIndex], addrBytes, hashing.ComputeHash256(txBytes))
-	case *block.BanffStandardBlock:
-		// In Banff blocks, add delegator and add validator transactions
-		// are in standard blocks. We extract public keys from them.
-		for _, tx := range blk.Txs() {
-			if tx.ID().String() == txID {
-				if len(tx.Creds) <= int(addrIndex) {
-					return nil, fmt.Errorf("invalid credential index %d", addrIndex)
-				}
-
-				// Try with avalanche-style signature
-				txHash := hashing.ComputeHash256(tx.Unsigned.Bytes())
-				pk, err := PublicKeyForAddressAndSignedHash(tx.Creds[addrIndex], addrBytes, txHash)
-				if err == nil {
-					return pk, nil
-				}
-
-				// Try with eth-style signature
-				txHashStr := hex.EncodeToString(txHash)
-				txHashEth := accounts.TextHash([]byte(txHashStr))
-				return PublicKeyForAddressAndSignedHash(tx.Creds[addrIndex], addrBytes, txHashEth)
-			}
-		}
-		return nil, ErrInvalidTransactionBlock
-	default:
-		return nil, ErrInvalidBlockType
 	}
+	return nil, ErrInvalidTransactionBlock
+}
+
+// Returns the public key that signed the credential at index addrIndex of the transaction
+// and matches the provided address. Both avalanche-style and eth-style signatures are supported.
+func publicKeyFromTx(tx *platform.Tx, addrBytes [20]byte, addrIndex uint32) (*secp256k1.PublicKey, error) {
+	if len(tx.Creds) <= int(addrIndex) {
+		return nil, fmt.Errorf("invalid credential index %d", addrIndex)
+	}
+
+	// Try with avalanche-style signature
+	txHash := hashing.ComputeHash256(tx.Unsigned.Bytes())
+	pk, err := PublicKeyForAddressAndSignedHash(tx.Creds[addrIndex], addrBytes, txHash)
+	if err == nil {
+		return pk, nil
+	}
+
+	// Try with eth-style signature
+	txHashStr := hex.EncodeToString(txHash)
+	txHashEth := accounts.TextHash([]byte(txHashStr))
+	return PublicKeyForAddressAndSignedHash(tx.Creds[addrIndex], addrBytes, txHashEth)
 }
 
 // For a given P-chain transaction hash return a public key for

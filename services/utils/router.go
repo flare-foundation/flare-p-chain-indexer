@@ -5,8 +5,10 @@ import (
 	"flare-indexer/services/api"
 	"log"
 	"net/http"
+	"strings"
 
 	swagger "github.com/davidebianchi/gswagger"
+	"github.com/davidebianchi/gswagger/apirouter"
 	"github.com/davidebianchi/gswagger/support/gorilla"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gorilla/mux"
@@ -60,8 +62,55 @@ type swaggerRouter struct {
 	tag     string
 }
 
+// oasGorillaRouter wraps the gswagger gorilla/mux adapter so that path variables with a
+// gorilla pattern, e.g. {tx_id:[0-9a-zA-Z]+}, are documented as plain OpenAPI template
+// variables, e.g. {tx_id}. Swagger UI can only substitute a parameter into a plain
+// template variable. The pattern is still used by gorilla/mux for routing.
+type oasGorillaRouter struct {
+	apirouter.Router[gorilla.HandlerFunc, gorilla.Route]
+}
+
+func newOasGorillaRouter(mRouter *mux.Router) apirouter.Router[gorilla.HandlerFunc, gorilla.Route] {
+	return oasGorillaRouter{Router: gorilla.NewRouter(mRouter)}
+}
+
+func (r oasGorillaRouter) TransformPathToOasPath(path string) string {
+	return gorillaPathToOasPath(path)
+}
+
+// gorillaPathToOasPath converts a gorilla/mux path to an OpenAPI path by removing the
+// pattern part of path variables: {name:pattern} -> {name}. Braces inside patterns
+// (e.g. {id:[0-9]{3}}) are matched.
+func gorillaPathToOasPath(path string) string {
+	var sb strings.Builder
+	depth := 0
+	inPattern := false
+	for _, c := range path {
+		switch c {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 && inPattern {
+				inPattern = false
+				sb.WriteRune(c)
+				continue
+			}
+		case ':':
+			if depth == 1 && !inPattern {
+				inPattern = true
+				continue
+			}
+		}
+		if !inPattern {
+			sb.WriteRune(c)
+		}
+	}
+	return sb.String()
+}
+
 func NewSwaggerRouter(mRouter *mux.Router, title string, version string) Router {
-	router, _ := swagger.NewRouter(gorilla.NewRouter(mRouter), swagger.Options{
+	router, _ := swagger.NewRouter(newOasGorillaRouter(mRouter), swagger.Options{
 		Openapi: &openapi3.T{
 			Info: &openapi3.Info{
 				Title:   title,
@@ -97,7 +146,7 @@ func (r *swaggerRouter) AddRoute(path string, handler RouteHandler, description 
 
 func (r *swaggerRouter) WithPrefix(prefix string, tag string) Router {
 	mSubRouter := r.mRouter.NewRoute().Subrouter()
-	subRouter, _ := r.router.SubRouter(gorilla.NewRouter(mSubRouter), swagger.SubRouterOptions{
+	subRouter, _ := r.router.SubRouter(newOasGorillaRouter(mSubRouter), swagger.SubRouterOptions{
 		PathPrefix: prefix,
 	})
 	return &swaggerRouter{
