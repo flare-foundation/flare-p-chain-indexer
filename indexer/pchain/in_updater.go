@@ -58,6 +58,8 @@ func (iu *pChainInputUpdater) updateFromChain(
 	missingTxIds mapset.Set[string],
 ) (mapset.Set[string], error) {
 	fetchedOuts := shared.NewOutputMap()
+	// UTXOs the chain minted outside of the outputs of the fetched transactions, see below
+	chainGeneratedUTXOs := mapset.NewSet[shared.IdIndexKey]()
 	for txId := range missingTxIds.Iterator().C {
 		tx, err := CallPChainGetTxApi(iu.client, txId)
 		if err != nil {
@@ -85,6 +87,20 @@ func (iu *pChainInputUpdater) updateFromChain(
 			// Reward UTXOs of a RewardAutoRenewedValidatorTx are stored under
 			// the reward tx's own id (it has no inputs or outputs of its own)
 			outs, err = getRewardOutputs(iu.client, txId)
+		case *platform.DisableL1ValidatorTx:
+			// Disabling an L1 validator, or removing it with a weight of 0, returns its remaining
+			// balance in a UTXO the chain mints at output index len(Outs) of the tx (ACP-77). The UTXO
+			// is not among the outputs of the tx and its owner, the remaining balance owner of the L1
+			// validator, is kept in the validator state only, which the node drops once the validator
+			// is removed. The indexer does not record the UTXO either; an input consuming it is
+			// attributed to the signers of its credential instead. The UTXO is minted only if the
+			// validator still had a balance, but an input consuming it is proof enough that it was.
+			outs, err = shared.OutputsFromTxOuts(txId, unsignedTx.Outs, 0, PChainDefaultInputOutputCreator)
+			chainGeneratedUTXOs.Add(shared.NewIdIndexKey(txId, uint32(len(unsignedTx.Outs))))
+		case *platform.SetL1ValidatorWeightTx:
+			// See DisableL1ValidatorTx
+			outs, err = shared.OutputsFromTxOuts(txId, unsignedTx.Outs, 0, PChainDefaultInputOutputCreator)
+			chainGeneratedUTXOs.Add(shared.NewIdIndexKey(txId, uint32(len(unsignedTx.Outs))))
 		default:
 			txOuts := tx.Unsigned.Outputs()
 			outs, err = shared.OutputsFromTxOuts(txId, txOuts, 0, PChainDefaultInputOutputCreator)
@@ -96,7 +112,11 @@ func (iu *pChainInputUpdater) updateFromChain(
 			fetchedOuts.Add(shared.NewIdIndexKey(out.Tx(), out.Index()), out)
 		}
 	}
-	return inputs.UpdateWithOutputs(fetchedOuts), nil
+	notUpdated := inputs.UpdateWithOutputs(fetchedOuts)
+	if chainGeneratedUTXOs.Cardinality() > 0 {
+		notUpdated = inputs.UpdateFromCredentials(chainGeneratedUTXOs)
+	}
+	return notUpdated, nil
 }
 
 func (iu *pChainInputUpdater) getAddStakerTxAndRewardTxOutputs(txId string, tx StakerTx) ([]shared.Output, error) {

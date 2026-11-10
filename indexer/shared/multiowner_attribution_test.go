@@ -81,7 +81,7 @@ func indexInput(
 		cache.Add(NewIdIndexKeyFromOutput(o), o)
 	}
 
-	ins := InputsFromTxIns(txID, []*avax.TransferableInput{in})
+	ins := InputsFromTxIns(txID, []*avax.TransferableInput{in}, nil)
 	if missing := NewInputList(ins).UpdateWithOutputs(cache); missing.Cardinality() != 0 {
 		t.Fatalf("unresolved inputs: %v", missing)
 	}
@@ -204,7 +204,7 @@ func TestGenesisInputsUnchanged(t *testing.T) {
 		outs[key] = []Output{}
 
 		ins := InputsFromTxIns(ids.GenerateTestID().String(),
-			[]*avax.TransferableInput{transferableInput(fundingTxID, 1, []uint32{0})})
+			[]*avax.TransferableInput{transferableInput(fundingTxID, 1, []uint32{0})}, nil)
 		if missing := NewInputList(ins).UpdateWithOutputs(outs); missing.Cardinality() != 0 {
 			t.Fatalf("unresolved inputs: %v", missing)
 		}
@@ -220,7 +220,7 @@ func TestGenesisInputsUnchanged(t *testing.T) {
 		outs.Add(key, nil)
 
 		ins := InputsFromTxIns(ids.GenerateTestID().String(),
-			[]*avax.TransferableInput{transferableInput(fundingTxID, 1, []uint32{0})})
+			[]*avax.TransferableInput{transferableInput(fundingTxID, 1, []uint32{0})}, nil)
 		if missing := NewInputList(ins).UpdateWithOutputs(outs); missing.Cardinality() != 0 {
 			t.Fatalf("unresolved inputs: %v", missing)
 		}
