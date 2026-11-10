@@ -3,6 +3,9 @@ package shared
 import (
 	"container/list"
 	"flare-indexer/database"
+	"fmt"
+
+	"github.com/ava-labs/avalanchego/vms/components/verify"
 )
 
 type Output interface {
@@ -19,6 +22,13 @@ type UpdatableInput interface {
 	// Implementations must keep only the owners that authorized the spend -- a listed
 	// co-owner that did not sign must never be recorded as the spender.
 	UpdateAddresses([]string)
+
+	// Set the addresses of the input to the signers of its credential in the spending
+	// transaction. This is the only record of the spender of a UTXO the chain minted outside
+	// of any transaction output, see InputList.UpdateFromCredentials. Fails if the credential
+	// of the input is not available or not a secp256k1 credential.
+	UpdateAddressesFromCredential() error
+
 	ToDbInputs() []*database.TxInput
 }
 
@@ -32,6 +42,10 @@ type updatableInput struct {
 	Addresses  []string
 	OutTxID    string
 	OutIdx     uint32
+	// Credential authorizing this input in the spending transaction and the hash it signs.
+	// Nil if the credentials of the transaction were not provided.
+	Cred   verify.Verifiable
+	TxHash []byte
 }
 
 func (ui *updatableInput) OutTx() string {
@@ -44,6 +58,18 @@ func (ui *updatableInput) OutIndex() uint32 {
 
 func (ui *updatableInput) UpdateAddresses(addrs []string) {
 	ui.Addresses = selectSigners(addrs, ui.SigIndices, ui.OutTxID, ui.OutIdx)
+}
+
+func (ui *updatableInput) UpdateAddressesFromCredential() error {
+	if ui.Cred == nil {
+		return fmt.Errorf("credential of input %d of tx %s is not available", ui.InIdx, ui.TxID)
+	}
+	signers, err := signersOf(ui.Cred, ui.TxHash)
+	if err != nil {
+		return fmt.Errorf("input %d of tx %s: %w", ui.InIdx, ui.TxID, err)
+	}
+	ui.Addresses = signers
+	return nil
 }
 
 func (ui *updatableInput) ToDbInputs() []*database.TxInput {

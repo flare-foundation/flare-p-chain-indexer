@@ -6,8 +6,12 @@ import (
 	"flare-indexer/logger"
 	"flare-indexer/utils"
 	"flare-indexer/utils/chain"
+	"fmt"
 	"sort"
 
+	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
+	"github.com/ava-labs/avalanchego/vms/components/verify"
+	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
 	mapset "github.com/deckarep/golang-set/v2"
 )
 
@@ -80,6 +84,68 @@ func (il InputList) UpdateWithOutputs(outputs utils.CacheBase[IdIndexKey, Output
 		e = next
 	}
 	return missingTxIds
+}
+
+// Set the addresses of the inputs consuming one of the given UTXOs from the signers of their
+// credentials and remove them from the list; the other inputs, and those without a usable
+// credential, are kept. Meant for UTXOs the chain mints outside of transaction outputs (the
+// remaining balance of a disabled or removed L1 validator): the output of such a UTXO exists in
+// no transaction and its owner is recorded nowhere but in the signature spending it.
+// Returns the output transaction ids of the inputs remaining in the list.
+func (il InputList) UpdateFromCredentials(utxos mapset.Set[IdIndexKey]) mapset.Set[string] {
+	missingTxIds := mapset.NewSet[string]()
+	for e := il.inputs.Front(); e != nil; {
+		next := e.Next()
+		in := e.Value.(UpdatableInput)
+		if utxos.Contains(IdIndexKey{in.OutTx(), in.OutIndex()}) {
+			err := in.UpdateAddressesFromCredential()
+			if err == nil {
+				dbIns := in.ToDbInputs()
+				addresses := make([]string, len(dbIns))
+				for i, dbIn := range dbIns {
+					addresses[i] = dbIn.Address
+				}
+				logger.Info("chain-generated UTXO %s:%d is consumed by an input of tx %s, spender %v recovered from its signature",
+					in.OutTx(), in.OutIndex(), dbIns[0].TxID, addresses)
+				il.inputs.Remove(e)
+				e = next
+				continue
+			}
+			logger.Warn("unable to attribute the input consuming chain-generated UTXO %s:%d: %v",
+				in.OutTx(), in.OutIndex(), err)
+		}
+		missingTxIds.Add(in.OutTx())
+		e = next
+	}
+	return missingTxIds
+}
+
+// Addresses that signed txHash in a secp256k1 credential, in the order of its signatures. The
+// secp256k1 fx of the chain verifies every signature of a credential over the sha256 of the unsigned
+// transaction bytes and requires the recovered address to be the owner of the consumed output at the
+// matching signature index, so for an accepted transaction these are exactly the owners that
+// authorized the spend -- the same addresses selectSigners keeps when the output is known.
+func signersOf(cred verify.Verifiable, txHash []byte) ([]string, error) {
+	secpCred, ok := cred.(*secp256k1fx.Credential)
+	if !ok {
+		return nil, fmt.Errorf("unsupported credential type %T", cred)
+	}
+	if len(secpCred.Sigs) == 0 {
+		return nil, fmt.Errorf("credential has no signatures")
+	}
+	signers := make([]string, len(secpCred.Sigs))
+	for i, sig := range secpCred.Sigs {
+		publicKey, err := secp256k1.RecoverPublicKeyFromHash(txHash, sig[:])
+		if err != nil {
+			return nil, fmt.Errorf("unable to recover the public key of signature %d: %w", i, err)
+		}
+		address, err := chain.FormatAddressBytes(publicKey.Address().Bytes())
+		if err != nil {
+			return nil, err
+		}
+		signers[i] = address
+	}
+	return signers, nil
 }
 
 // Keep only the owners of a consumed output that authorized the spend, i.e. those the

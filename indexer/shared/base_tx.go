@@ -5,6 +5,7 @@ import (
 	"flare-indexer/utils/chain"
 	"fmt"
 
+	"github.com/ava-labs/avalanchego/utils/hashing"
 	"github.com/ava-labs/avalanchego/vms/components/avax"
 	"github.com/ava-labs/avalanchego/vms/components/verify"
 	"github.com/ava-labs/avalanchego/vms/platformvm/fx"
@@ -112,9 +113,41 @@ func RewardsOwnerAddress(owner fx.Owner) (string, error) {
 	return chain.FormatAddressBytes(oo.Addrs[0].Bytes())
 }
 
-// Create inputs to BaseTx. Note that addresses of inputs are are not set. They should be updated from
-// cached outputs, outputs from the database or outputs from the chain
-func InputsFromTxIns(txID string, ins []*avax.TransferableInput) []UpdatableInput {
+// Credentials of a signed transaction, identifying the signers of its inputs: the credential at
+// index i authorizes input i. Credentials of other authorizations (e.g. of the subnet owner in a
+// subnet transaction) and of the imported inputs of an import transaction follow those of the inputs.
+type Credentials struct {
+	creds  []verify.Verifiable
+	txHash []byte // The message the credentials sign: sha256 of the unsigned transaction bytes
+}
+
+func NewCredentials(creds []verify.Verifiable, unsignedBytes []byte) *Credentials {
+	return &Credentials{
+		creds:  creds,
+		txHash: hashing.ComputeHash256(unsignedBytes),
+	}
+}
+
+// Credential authorizing the input at index i, nil if not available
+func (c *Credentials) credential(i int) verify.Verifiable {
+	if c == nil || i >= len(c.creds) {
+		return nil
+	}
+	return c.creds[i]
+}
+
+func (c *Credentials) hash() []byte {
+	if c == nil {
+		return nil
+	}
+	return c.txHash
+}
+
+// Create inputs to BaseTx. Note that addresses of inputs are not set. They should be updated from
+// cached outputs, outputs from the database or outputs from the chain. creds are the credentials of
+// the signed transaction (nil if not available); they identify the spender of a UTXO whose output
+// is recorded nowhere, see InputList.UpdateFromCredentials.
+func InputsFromTxIns(txID string, ins []*avax.TransferableInput, creds *Credentials) []UpdatableInput {
 	txIns := make([]UpdatableInput, len(ins))
 	for ini, in := range ins {
 		txIns[ini] = &updatableInput{
@@ -124,6 +157,8 @@ func InputsFromTxIns(txID string, ins []*avax.TransferableInput) []UpdatableInpu
 			SigIndices: sigIndicesOf(in.In),
 			OutTxID:    in.TxID.String(),
 			OutIdx:     in.OutputIndex,
+			Cred:       creds.credential(ini),
+			TxHash:     creds.hash(),
 		}
 	}
 	return txIns

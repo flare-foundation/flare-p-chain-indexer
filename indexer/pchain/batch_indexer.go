@@ -140,6 +140,10 @@ func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database
 		dbTx.BlockTime = &time
 	}
 
+	// Credentials of the inputs, needed to attribute the spend of a UTXO minted by the chain outside
+	// of transaction outputs (see pChainInputUpdater.updateFromChain)
+	creds := shared.NewCredentials(tx.Creds, tx.Unsigned.Bytes())
+
 	var err error = nil
 	switch unsignedTx := tx.Unsigned.(type) {
 	case *platform.RewardValidatorTx:
@@ -147,50 +151,53 @@ func (xi *txBatchIndexer) addTx(container *indexer.Container, blockType database
 	case *platform.RewardAutoRenewedValidatorTx:
 		err = xi.updateRewardAutoRenewedValidatorTx(dbTx, unsignedTx)
 	case *platform.AddValidatorTx:
-		err = xi.updateAddValidatorTx(dbTx, unsignedTx)
+		err = xi.updateAddValidatorTx(dbTx, unsignedTx, creds)
 	case *platform.AddPermissionlessValidatorTx:
-		err = xi.updateAddPermissionlessValidatorTx(dbTx, unsignedTx)
+		err = xi.updateAddPermissionlessValidatorTx(dbTx, unsignedTx, creds)
 	case *platform.AddDelegatorTx:
-		err = xi.updateAddDelegatorTx(dbTx, unsignedTx)
+		err = xi.updateAddDelegatorTx(dbTx, unsignedTx, creds)
 	case *platform.AddPermissionlessDelegatorTx:
-		err = xi.updateAddPermissionlessDelegatorTx(dbTx, unsignedTx)
+		err = xi.updateAddPermissionlessDelegatorTx(dbTx, unsignedTx, creds)
 	case *platform.AddAutoRenewedValidatorTx:
-		err = xi.updateAddAutoRenewedValidatorTx(dbTx, unsignedTx)
+		err = xi.updateAddAutoRenewedValidatorTx(dbTx, unsignedTx, creds)
 	case *platform.SetAutoRenewedValidatorConfigTx:
-		err = xi.updateSetAutoRenewedValidatorConfigTx(dbTx, unsignedTx)
+		err = xi.updateSetAutoRenewedValidatorConfigTx(dbTx, unsignedTx, creds)
 	case *platform.ImportTx:
-		err = xi.updateImportTx(dbTx, unsignedTx)
+		err = xi.updateImportTx(dbTx, unsignedTx, creds)
 	case *platform.ExportTx:
-		err = xi.updateExportTx(dbTx, unsignedTx)
+		err = xi.updateExportTx(dbTx, unsignedTx, creds)
 	case *platform.AdvanceTimeTx:
 		xi.updateAdvanceTimeTx(dbTx, unsignedTx)
 	case *platform.BaseTx:
-		err = xi.updateGeneralBaseTx(dbTx, database.PChainBaseTx, unsignedTx)
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainBaseTx, unsignedTx, creds)
 
 	// We do not save specific info for the following transaction types.
 	// We may change this in the future if we need to index more data.
 	case *platform.CreateChainTx:
-		err = xi.updateGeneralBaseTx(dbTx, database.PChainCreateChainTx, &unsignedTx.BaseTx)
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainCreateChainTx, &unsignedTx.BaseTx, creds)
 	case *platform.CreateSubnetTx:
-		err = xi.updateGeneralBaseTx(dbTx, database.PChainCreateSubnetTx, &unsignedTx.BaseTx)
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainCreateSubnetTx, &unsignedTx.BaseTx, creds)
 	case *platform.RemoveSubnetValidatorTx:
-		err = xi.updateGeneralBaseTx(dbTx, database.PChainRemoveSubnetValidatorTx, &unsignedTx.BaseTx)
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainRemoveSubnetValidatorTx, &unsignedTx.BaseTx, creds)
 	case *platform.TransformSubnetTx:
-		err = xi.updateGeneralBaseTx(dbTx, database.PChainTransformSubnetTx, &unsignedTx.BaseTx)
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainTransformSubnetTx, &unsignedTx.BaseTx, creds)
 	case *platform.AddSubnetValidatorTx:
-		err = xi.updateGeneralBaseTx(dbTx, database.PChainAddSubnetValidatorTx, &unsignedTx.BaseTx)
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainAddSubnetValidatorTx, &unsignedTx.BaseTx, creds)
 	case *platform.TransferSubnetOwnershipTx:
-		err = xi.updateGeneralBaseTx(dbTx, database.PChainTransferSubnetOwnershipTx, &unsignedTx.BaseTx)
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainTransferSubnetOwnershipTx, &unsignedTx.BaseTx, creds)
 	case *platform.ConvertSubnetToL1Tx:
-		err = xi.updateGeneralBaseTx(dbTx, database.PChainConvertSubnetToL1Tx, &unsignedTx.BaseTx)
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainConvertSubnetToL1Tx, &unsignedTx.BaseTx, creds)
 	case *platform.RegisterL1ValidatorTx:
-		err = xi.updateGeneralBaseTx(dbTx, database.PChainRegisterL1ValidatorTx, &unsignedTx.BaseTx)
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainRegisterL1ValidatorTx, &unsignedTx.BaseTx, creds)
 	case *platform.DisableL1ValidatorTx:
-		err = xi.updateGeneralBaseTx(dbTx, database.PChainDisableL1ValidatorTx, &unsignedTx.BaseTx)
+		// Note that the remaining balance of the validator is returned in a UTXO that is not among
+		// the outputs of the tx, see pChainInputUpdater.updateFromChain
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainDisableL1ValidatorTx, &unsignedTx.BaseTx, creds)
 	case *platform.SetL1ValidatorWeightTx:
-		err = xi.updateGeneralBaseTx(dbTx, database.PChainSetL1ValidatorWeightTx, &unsignedTx.BaseTx)
+		// Same as for DisableL1ValidatorTx if the weight is set to 0
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainSetL1ValidatorWeightTx, &unsignedTx.BaseTx, creds)
 	case *platform.IncreaseL1ValidatorBalanceTx:
-		err = xi.updateGeneralBaseTx(dbTx, database.PChainIncreaseL1ValidatorBalanceTx, &unsignedTx.BaseTx)
+		err = xi.updateGeneralBaseTx(dbTx, database.PChainIncreaseL1ValidatorBalanceTx, &unsignedTx.BaseTx, creds)
 	default:
 		err = fmt.Errorf("p-chain transaction %v with type %T in block %d is not indexed", dbTx.TxID, unsignedTx, height)
 	}
@@ -254,43 +261,43 @@ func (xi *txBatchIndexer) updateRewardAutoRenewedValidatorTx(dbTx *database.PCha
 	return nil
 }
 
-func (xi *txBatchIndexer) updateAddValidatorTx(dbTx *database.PChainTx, tx *platform.AddValidatorTx) error {
+func (xi *txBatchIndexer) updateAddValidatorTx(dbTx *database.PChainTx, tx *platform.AddValidatorTx, creds *shared.Credentials) error {
 	dbTx.Type = database.PChainAddValidatorTx
-	return xi.updateBoundedValidatorTx(dbTx, tx, tx.Ins)
+	return xi.updateBoundedValidatorTx(dbTx, tx, tx.Ins, creds)
 }
 
-func (xi *txBatchIndexer) updateAddPermissionlessValidatorTx(dbTx *database.PChainTx, tx *platform.AddPermissionlessValidatorTx) error {
+func (xi *txBatchIndexer) updateAddPermissionlessValidatorTx(dbTx *database.PChainTx, tx *platform.AddPermissionlessValidatorTx, creds *shared.Credentials) error {
 	dbTx.Type = database.PChainAddPermissionlessValidatorTx
-	return xi.updateBoundedValidatorTx(dbTx, tx, tx.Ins)
+	return xi.updateBoundedValidatorTx(dbTx, tx, tx.Ins, creds)
 }
 
-func (xi *txBatchIndexer) updateAddAutoRenewedValidatorTx(dbTx *database.PChainTx, tx *platform.AddAutoRenewedValidatorTx) error {
+func (xi *txBatchIndexer) updateAddAutoRenewedValidatorTx(dbTx *database.PChainTx, tx *platform.AddAutoRenewedValidatorTx, creds *shared.Credentials) error {
 	dbTx.Type = database.PChainAddAutoRenewedValidatorTx
-	return xi.updateUnboundedValidatorTx(dbTx, tx, tx.Ins)
+	return xi.updateUnboundedValidatorTx(dbTx, tx, tx.Ins, creds)
 }
 
-func (xi *txBatchIndexer) updateAddDelegatorTx(dbTx *database.PChainTx, tx *platform.AddDelegatorTx) error {
+func (xi *txBatchIndexer) updateAddDelegatorTx(dbTx *database.PChainTx, tx *platform.AddDelegatorTx, creds *shared.Credentials) error {
 	dbTx.Type = database.PChainAddDelegatorTx
-	return xi.updateDelegatorTx(dbTx, tx, tx.Ins)
+	return xi.updateDelegatorTx(dbTx, tx, tx.Ins, creds)
 }
 
-func (xi *txBatchIndexer) updateAddPermissionlessDelegatorTx(dbTx *database.PChainTx, tx *platform.AddPermissionlessDelegatorTx) error {
+func (xi *txBatchIndexer) updateAddPermissionlessDelegatorTx(dbTx *database.PChainTx, tx *platform.AddPermissionlessDelegatorTx, creds *shared.Credentials) error {
 	dbTx.Type = database.PChainAddPermissionlessDelegatorTx
-	return xi.updateDelegatorTx(dbTx, tx, tx.Ins)
+	return xi.updateDelegatorTx(dbTx, tx, tx.Ins, creds)
 }
 
-func (xi *txBatchIndexer) updateImportTx(dbTx *database.PChainTx, tx *platform.ImportTx) error {
+func (xi *txBatchIndexer) updateImportTx(dbTx *database.PChainTx, tx *platform.ImportTx, creds *shared.Credentials) error {
 	dbTx.Type = database.PChainImportTx
 	dbTx.ChainID = tx.SourceChain.String()
 	xi.newTxs = append(xi.newTxs, dbTx)
-	return xi.inOutIndexer.AddNewFromBaseTx(*dbTx.TxID, &tx.BaseTx.BaseTx, PChainDefaultInputOutputCreator)
+	return xi.inOutIndexer.AddNewFromBaseTx(*dbTx.TxID, &tx.BaseTx.BaseTx, creds, PChainDefaultInputOutputCreator)
 }
 
-func (xi *txBatchIndexer) updateExportTx(dbTx *database.PChainTx, tx *platform.ExportTx) error {
+func (xi *txBatchIndexer) updateExportTx(dbTx *database.PChainTx, tx *platform.ExportTx, creds *shared.Credentials) error {
 	dbTx.Type = database.PChainExportTx
 	dbTx.ChainID = tx.DestinationChain.String()
 	xi.newTxs = append(xi.newTxs, dbTx)
-	return xi.inOutIndexer.AddNewFromBaseTx(*dbTx.TxID, &tx.BaseTx.BaseTx, PChainDefaultInputOutputCreator)
+	return xi.inOutIndexer.AddNewFromBaseTx(*dbTx.TxID, &tx.BaseTx.BaseTx, creds, PChainDefaultInputOutputCreator)
 }
 
 func (xi *txBatchIndexer) updateAdvanceTimeTx(dbTx *database.PChainTx, tx *platform.AdvanceTimeTx) {
@@ -300,10 +307,10 @@ func (xi *txBatchIndexer) updateAdvanceTimeTx(dbTx *database.PChainTx, tx *platf
 	xi.newTxs = append(xi.newTxs, dbTx)
 }
 
-func (xi *txBatchIndexer) updateGeneralBaseTx(dbTx *database.PChainTx, txType database.PChainTxType, baseTx *platform.BaseTx) error {
+func (xi *txBatchIndexer) updateGeneralBaseTx(dbTx *database.PChainTx, txType database.PChainTxType, baseTx *platform.BaseTx, creds *shared.Credentials) error {
 	dbTx.Type = txType
 	xi.newTxs = append(xi.newTxs, dbTx)
-	return xi.inOutIndexer.AddNewFromBaseTx(*dbTx.TxID, &baseTx.BaseTx, PChainDefaultInputOutputCreator)
+	return xi.inOutIndexer.AddNewFromBaseTx(*dbTx.TxID, &baseTx.BaseTx, creds, PChainDefaultInputOutputCreator)
 }
 
 // Persist all entities
@@ -378,12 +385,13 @@ func (xi *txBatchIndexer) updateBoundedValidatorTx(
 	dbTx *database.PChainTx,
 	tx BoundedValidatorTx,
 	txIns []*avax.TransferableInput,
+	creds *shared.Credentials,
 ) error {
 	err := xi.updateValidatorTx(dbTx, tx, txIns)
 	if err != nil {
 		return err
 	}
-	return xi.updateAddBoundedStakerTx(dbTx, tx, txIns)
+	return xi.updateAddBoundedStakerTx(dbTx, tx, txIns, creds)
 }
 
 // Code for addAutoRenewedValidatorTx: the first validation cycle starts at the block (chain) time and
@@ -392,6 +400,7 @@ func (xi *txBatchIndexer) updateUnboundedValidatorTx(
 	dbTx *database.PChainTx,
 	tx *platform.AddAutoRenewedValidatorTx,
 	txIns []*avax.TransferableInput,
+	creds *shared.Credentials,
 ) error {
 	if dbTx.BlockTime == nil {
 		return fmt.Errorf("add auto renewed validator tx %s in block %d has no block time", *dbTx.TxID, dbTx.BlockHeight)
@@ -406,7 +415,7 @@ func (xi *txBatchIndexer) updateUnboundedValidatorTx(
 	if err != nil {
 		return err
 	}
-	return xi.updateAddStakerTx(dbTx, tx, txIns)
+	return xi.updateAddStakerTx(dbTx, tx, txIns, creds)
 }
 
 // Common code for AddDelegatorTx and AddPermissionlessDelegatorTx (DelegatorTx interface)
@@ -414,19 +423,21 @@ func (xi *txBatchIndexer) updateDelegatorTx(
 	dbTx *database.PChainTx,
 	tx DelegatorTx,
 	txIns []*avax.TransferableInput,
+	creds *shared.Credentials,
 ) error {
 	ownerAddress, err := shared.RewardsOwnerAddress(tx.RewardsOwner())
 	if err != nil {
 		return err
 	}
 	dbTx.RewardsOwner = ownerAddress
-	return xi.updateAddBoundedStakerTx(dbTx, tx, txIns)
+	return xi.updateAddBoundedStakerTx(dbTx, tx, txIns, creds)
 }
 
 func (xi *txBatchIndexer) updateAddStakerTx(
 	dbTx *database.PChainTx,
 	tx StakerTx,
 	txIns []*avax.TransferableInput,
+	creds *shared.Credentials,
 ) error {
 	dbTx.NodeID = tx.NodeID().String()
 	dbTx.Weight = tx.Weight()
@@ -445,7 +456,7 @@ func (xi *txBatchIndexer) updateAddStakerTx(
 	if err != nil {
 		return err
 	}
-	ins := shared.InputsFromTxIns(*dbTx.TxID, txIns)
+	ins := shared.InputsFromTxIns(*dbTx.TxID, txIns, creds)
 
 	xi.newTxs = append(xi.newTxs, dbTx)
 	xi.inOutIndexer.Add(outs, ins)
@@ -458,6 +469,7 @@ func (xi *txBatchIndexer) updateAddBoundedStakerTx(
 	dbTx *database.PChainTx,
 	tx BoundedStakerTx,
 	txIns []*avax.TransferableInput,
+	creds *shared.Credentials,
 ) error {
 	var startTime time.Time
 	if xi.isDurango(dbTx.BlockTime) {
@@ -468,7 +480,7 @@ func (xi *txBatchIndexer) updateAddBoundedStakerTx(
 	dbTx.StartTime = &startTime
 	endTime := tx.EndTime()
 	dbTx.EndTime = &endTime
-	return xi.updateAddStakerTx(dbTx, tx, txIns)
+	return xi.updateAddStakerTx(dbTx, tx, txIns, creds)
 }
 
 func (xi *txBatchIndexer) isDurango(blockTime *time.Time) bool {
@@ -499,10 +511,11 @@ func getRewardOutputs(client chain.RPCClient, txID string) ([]shared.Output, err
 func (xi *txBatchIndexer) updateSetAutoRenewedValidatorConfigTx(
 	dbTx *database.PChainTx,
 	tx *platform.SetAutoRenewedValidatorConfigTx,
+	creds *shared.Credentials,
 ) error {
 	// The referenced add auto renewed validator tx is stored like the staker tx of a reward tx
 	period := tx.Period
 	dbTx.Period = &period
 	dbTx.RewardTxID = tx.TxID.String()
-	return xi.updateGeneralBaseTx(dbTx, database.PChainSetAutoRenewedValidatorConfigTx, &tx.BaseTx)
+	return xi.updateGeneralBaseTx(dbTx, database.PChainSetAutoRenewedValidatorConfigTx, &tx.BaseTx, creds)
 }

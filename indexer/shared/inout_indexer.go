@@ -34,9 +34,12 @@ func (iox *InputOutputIndexer) Reset(containersLen int) {
 	iox.inUpdater.PurgeCache()
 }
 
+// Add the outputs and inputs of a base transaction; creds are the credentials of the signed
+// transaction (nil if not available), see InputsFromTxIns
 func (iox *InputOutputIndexer) AddNewFromBaseTx(
 	txID string,
 	tx *avax.BaseTx,
+	creds *Credentials,
 	creator OutputCreator,
 ) error {
 	outs, err := OutputsFromTxOuts(txID, tx.Outs, 0, creator)
@@ -44,7 +47,7 @@ func (iox *InputOutputIndexer) AddNewFromBaseTx(
 		return err
 	}
 	iox.outs = append(iox.outs, outs...)
-	iox.ins = append(iox.ins, InputsFromTxIns(txID, tx.Ins)...)
+	iox.ins = append(iox.ins, InputsFromTxIns(txID, tx.Ins, creds)...)
 	return nil
 }
 

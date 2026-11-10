@@ -116,7 +116,9 @@ func (xi *txBatchIndexer) addBaseTx(
 	tx.Bytes = bytes
 
 	xi.newTxs = append(xi.newTxs, tx)
-	return xi.inOutIndexer.AddNewFromBaseTx(tx.TxID, &baseTx.BaseTx, XChainInputOutputCreator)
+	// Credentials are only needed to attribute the spends of UTXOs minted by the chain outside of
+	// transaction outputs, of which the X-chain has none
+	return xi.inOutIndexer.AddNewFromBaseTx(tx.TxID, &baseTx.BaseTx, nil, XChainInputOutputCreator)
 }
 
 // Persist all entities
